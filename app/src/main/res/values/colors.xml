@@ -7,4 +7,15 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Widget Light Theme Colors -->
+    <color name="widget_surface">#FFF7FBFA</color>
+    <color name="widget_border">#FFCCE3DF</color>
+    <color name="widget_primary">#FF0F766E</color>
+    <color name="widget_on_primary">#FFFFFFFF</color>
+    <color name="widget_primary_soft">#FFE0F5F2</color>
+    <color name="widget_text_primary">#FF0F172A</color>
+    <color name="widget_text_secondary">#FF475569</color>
+    <color name="widget_slot_bg">#FFF0F7F5</color>
+    <color name="widget_imsak_accent">#FFB45309</color>
 </resources>

@@ -1,6 +1,8 @@
 package com.example
 
 import android.Manifest
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -28,7 +30,11 @@ import com.example.data.LocationHelper
 import com.example.ui.PrayerViewModel
 import com.example.ui.ScheduleScreen
 import com.example.ui.SoundSettingsScreen
+import com.example.ui.WidgetStyleOption
 import com.example.ui.theme.PengingatShalatTheme
+import com.example.widget.CompactPrayerWidgetProvider
+import com.example.widget.PrayerScheduleWidgetProvider
+import com.example.widget.WidgetThemeHelper
 
 object AppRoutes {
   const val ROUTE_SCHEDULE = "schedule"
@@ -43,11 +49,20 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     setContent {
-      PengingatShalatTheme {
-        val context = LocalContext.current
-        val vm: PrayerViewModel = viewModel()
-        prayerViewModel = vm
-        val uiState by vm.uiState.collectAsStateWithLifecycle()
+      val context = LocalContext.current
+      val vm: PrayerViewModel = viewModel()
+      prayerViewModel = vm
+      val uiState by vm.uiState.collectAsStateWithLifecycle()
+      val dynamicPhase =
+        WidgetThemeHelper.resolveDynamicPhase(
+          nowMillis = uiState.nowMillis,
+          timeZoneId = uiState.preferences.timeZoneId,
+        )
+
+      PengingatShalatTheme(
+        themeMode = uiState.preferences.widgetThemeMode,
+        dynamicPhase = dynamicPhase,
+      ) {
         val navController = rememberNavController()
 
         var hasNotificationPermission by remember {
@@ -127,6 +142,37 @@ class MainActivity : ComponentActivity() {
               onOpenSoundSettings = {
                 vm.syncDraftFromSaved()
                 navController.navigate(AppRoutes.ROUTE_SOUND_SETTINGS)
+              },
+              onSelectWidgetThemeMode = { mode -> vm.setWidgetThemeMode(mode) },
+              onPinWidgetStyle = { styleOption ->
+                val targetClass =
+                  when (styleOption) {
+                    WidgetStyleOption.GRID_2X2 -> PrayerScheduleWidgetProvider::class.java
+                    WidgetStyleOption.COMPACT_2X2 -> CompactPrayerWidgetProvider::class.java
+                  }
+                val label =
+                  when (styleOption) {
+                    WidgetStyleOption.GRID_2X2 -> "Jadwal Mini (2x2)"
+                    WidgetStyleOption.COMPACT_2X2 -> "Shalat Berikutnya (2x2)"
+                  }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                  val manager = AppWidgetManager.getInstance(context)
+                  val provider = ComponentName(context, targetClass)
+                  if (manager.isRequestPinAppWidgetSupported) {
+                    val requested = manager.requestPinAppWidget(provider, null, null)
+                    if (!requested) {
+                      vm.showSnackbar("Tambahkan widget $label dari menu Widget layar utama.")
+                    }
+                  } else {
+                    vm.showSnackbar(
+                      "Tekan lama layar utama HP lalu pilih Widget → $label."
+                    )
+                  }
+                } else {
+                  vm.showSnackbar(
+                    "Tekan lama layar utama HP lalu pilih Widget → $label."
+                  )
+                }
               },
               onToggleAlreadyPrayed = { prayerType, checked ->
                 vm.toggleAlreadyPrayed(prayerType, checked)

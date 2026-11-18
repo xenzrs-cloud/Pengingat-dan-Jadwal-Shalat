@@ -11,6 +11,7 @@ import com.example.domain.KemenagPrayerCalculator
 import com.example.domain.PrayerPreferences
 import com.example.domain.PrayerType
 import com.example.domain.SoundCategory
+import com.example.widget.PrayerScheduleWidgetProvider
 
 object PrayerAlarmScheduler {
 
@@ -44,6 +45,7 @@ object PrayerAlarmScheduler {
 
     scheduleForDay(context, today, preferences, nowMillis)
     scheduleForDay(context, tomorrow, preferences, nowMillis)
+    runCatching { PrayerScheduleWidgetProvider.updateAllWidgetsWithPrefs(context, preferences) }
   }
 
   fun scheduleForDay(

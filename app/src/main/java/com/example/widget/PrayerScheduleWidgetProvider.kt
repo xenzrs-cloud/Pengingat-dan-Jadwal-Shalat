@@ -1,0 +1,229 @@
+package com.example.widget
+
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.view.View
+import android.widget.RemoteViews
+import com.example.MainActivity
+import com.example.R
+import com.example.data.PrayerPreferencesRepository
+import com.example.domain.KemenagPrayerCalculator
+import com.example.domain.PrayerPreferences
+import com.example.domain.PrayerType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+/**
+ * Widget Opsi 1 (2x2): Jadwal Mini berisi 6 waktu harian (Imsak, Subuh, Dzuhur, Ashar, Maghrib, Isya)
+ * dengan dukungan tema Default maupun latar masjid dinamis siang/malam.
+ */
+class PrayerScheduleWidgetProvider : AppWidgetProvider() {
+
+  override fun onUpdate(
+    context: Context,
+    appWidgetManager: AppWidgetManager,
+    appWidgetIds: IntArray,
+  ) {
+    val pendingResult = goAsync()
+    val appContext = context.applicationContext
+    CoroutineScope(Dispatchers.IO).launch {
+      try {
+        val prefs = PrayerPreferencesRepository(appContext).getCurrent()
+        appWidgetIds.forEach { widgetId ->
+          val views = buildRemoteViews(appContext, prefs)
+          appWidgetManager.updateAppWidget(widgetId, views)
+        }
+      } finally {
+        pendingResult.finish()
+      }
+    }
+  }
+
+  override fun onReceive(context: Context, intent: Intent) {
+    super.onReceive(context, intent)
+    if (intent.action == ACTION_REFRESH_WIDGET) {
+      val pendingResult = goAsync()
+      val appContext = context.applicationContext
+      CoroutineScope(Dispatchers.IO).launch {
+        try {
+          val prefs = PrayerPreferencesRepository(appContext).getCurrent()
+          updateAllWidgetsWithPrefs(appContext, prefs)
+        } finally {
+          pendingResult.finish()
+        }
+      }
+    }
+  }
+
+  companion object {
+    const val ACTION_REFRESH_WIDGET = "com.example.widget.ACTION_REFRESH_WIDGET"
+
+    fun updateAllWidgets(context: Context) {
+      val appContext = context.applicationContext
+      CoroutineScope(Dispatchers.IO).launch {
+        val prefs = PrayerPreferencesRepository(appContext).getCurrent()
+        updateAllWidgetsWithPrefs(appContext, prefs)
+      }
+    }
+
+    fun updateAllWidgetsWithPrefs(context: Context, prefs: PrayerPreferences) {
+      val manager = AppWidgetManager.getInstance(context)
+
+      // Update Grid 2x2 Widgets
+      val gridComponent = ComponentName(context, PrayerScheduleWidgetProvider::class.java)
+      val gridIds = manager.getAppWidgetIds(gridComponent)
+      if (gridIds.isNotEmpty()) {
+        val views = buildRemoteViews(context, prefs)
+        gridIds.forEach { widgetId -> manager.updateAppWidget(widgetId, views) }
+      }
+
+      // Update Compact Hero 2x2 Widgets
+      CompactPrayerWidgetProvider.updateWithPrefs(context, manager, prefs)
+    }
+
+    fun buildRemoteViews(
+      context: Context,
+      prefs: PrayerPreferences,
+      nowMillis: Long = System.currentTimeMillis(),
+    ): RemoteViews {
+      val (today, _) =
+        KemenagPrayerCalculator.calculateTodayAndTomorrow(
+          nowMillis = nowMillis,
+          latitude = prefs.latitude,
+          longitude = prefs.longitude,
+          timeZoneId = prefs.timeZoneId,
+          locationName = prefs.locationName,
+        )
+
+      val widgetPrayers =
+        listOf(
+          PrayerType.IMSAK,
+          PrayerType.SUBUH,
+          PrayerType.DZUHUR,
+          PrayerType.ASHAR,
+          PrayerType.MAGHRIB,
+          PrayerType.ISYA,
+        )
+
+      val nextToday =
+        widgetPrayers
+          .map { today.slotOf(it) }
+          .firstOrNull { it.startEpochMillis > nowMillis }
+
+      val style =
+        WidgetThemeHelper.resolveStyle(
+          context = context,
+          mode = prefs.widgetThemeMode,
+          nowMillis = nowMillis,
+          timeZoneId = prefs.timeZoneId,
+        )
+
+      val views = RemoteViews(context.packageName, R.layout.widget_prayer_schedule)
+
+      if (style.backgroundImageRes != null) {
+        views.setViewVisibility(R.id.widget_bg_image, View.VISIBLE)
+        views.setImageViewResource(R.id.widget_bg_image, style.backgroundImageRes)
+      } else {
+        views.setViewVisibility(R.id.widget_bg_image, View.GONE)
+      }
+
+      views.setTextViewText(R.id.widget_location, prefs.locationName)
+      views.setTextColor(R.id.widget_location, style.primaryTextColor)
+      views.setImageViewResource(R.id.widget_refresh_btn, style.refreshIconRes)
+
+      val timeViews =
+        mapOf(
+          PrayerType.IMSAK to R.id.widget_time_imsak,
+          PrayerType.SUBUH to R.id.widget_time_subuh,
+          PrayerType.DZUHUR to R.id.widget_time_dzuhur,
+          PrayerType.ASHAR to R.id.widget_time_ashar,
+          PrayerType.MAGHRIB to R.id.widget_time_maghrib,
+          PrayerType.ISYA to R.id.widget_time_isya,
+        )
+      val labelViews =
+        mapOf(
+          PrayerType.IMSAK to R.id.widget_label_imsak,
+          PrayerType.SUBUH to R.id.widget_label_subuh,
+          PrayerType.DZUHUR to R.id.widget_label_dzuhur,
+          PrayerType.ASHAR to R.id.widget_label_ashar,
+          PrayerType.MAGHRIB to R.id.widget_label_maghrib,
+          PrayerType.ISYA to R.id.widget_label_isya,
+        )
+      val slotContainers =
+        mapOf(
+          PrayerType.IMSAK to R.id.slot_imsak_container,
+          PrayerType.SUBUH to R.id.slot_subuh_container,
+          PrayerType.DZUHUR to R.id.slot_dzuhur_container,
+          PrayerType.ASHAR to R.id.slot_ashar_container,
+          PrayerType.MAGHRIB to R.id.slot_maghrib_container,
+          PrayerType.ISYA to R.id.slot_isya_container,
+        )
+
+      widgetPrayers.forEach { type ->
+        val clock =
+          KemenagPrayerCalculator.formatClock(
+            today.slotOf(type).startEpochMillis,
+            prefs.timeZoneId,
+          )
+        val isNext = nextToday?.type == type
+        val timeId = timeViews.getValue(type)
+        val labelId = labelViews.getValue(type)
+        val containerId = slotContainers.getValue(type)
+
+        views.setTextViewText(timeId, clock)
+        views.setTextColor(
+          timeId,
+          if (isNext) style.accentTextColor else style.primaryTextColor,
+        )
+        views.setTextColor(
+          labelId,
+          when {
+            isNext -> style.accentTextColor
+            type == PrayerType.IMSAK -> style.imsakLabelColor
+            else -> style.secondaryTextColor
+          },
+        )
+        views.setInt(
+          containerId,
+          "setBackgroundResource",
+          if (isNext) style.slotActiveBgRes else style.slotDefaultBgRes,
+        )
+      }
+
+      // Tap widget body -> open MainActivity
+      val openIntent =
+        Intent(context, MainActivity::class.java).apply {
+          flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+      val openPendingIntent =
+        PendingIntent.getActivity(
+          context,
+          9001,
+          openIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+      views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent)
+
+      // Tap refresh icon -> update all widgets immediately
+      val refreshIntent =
+        Intent(context, PrayerScheduleWidgetProvider::class.java).apply {
+          action = ACTION_REFRESH_WIDGET
+        }
+      val refreshPendingIntent =
+        PendingIntent.getBroadcast(
+          context,
+          9002,
+          refreshIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+      views.setOnClickPendingIntent(R.id.widget_refresh_btn, refreshPendingIntent)
+
+      return views
+    }
+  }
+}

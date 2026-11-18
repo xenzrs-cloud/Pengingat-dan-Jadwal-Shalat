@@ -63,6 +63,34 @@
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
         </receiver>
+
+        <!-- Widget Opsi 1 (2x2): Jadwal Mini 6 Waktu -->
+        <receiver
+            android:name=".widget.PrayerScheduleWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_label_grid">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_REFRESH_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/prayer_widget_info" />
+        </receiver>
+
+        <!-- Widget Opsi 2 (2x2): Shalat Berikutnya Fokus -->
+        <receiver
+            android:name=".widget.CompactPrayerWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_label_compact">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_REFRESH_COMPACT_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/prayer_widget_compact_info" />
+        </receiver>
     </application>
 
 </manifest>

@@ -12,10 +12,13 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.MainActivity
 import com.example.R
+import com.example.widget.PrayerScheduleWidgetProvider
 
 class PrayerAlarmReceiver : BroadcastReceiver() {
 
   override fun onReceive(context: Context, intent: Intent) {
+    runCatching { PrayerScheduleWidgetProvider.updateAllWidgets(context) }
+
     val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 1001)
     val channelId = intent.getStringExtra(EXTRA_CHANNEL_ID) ?: return
     val title = intent.getStringExtra(EXTRA_TITLE) ?: "Pengingat Shalat"

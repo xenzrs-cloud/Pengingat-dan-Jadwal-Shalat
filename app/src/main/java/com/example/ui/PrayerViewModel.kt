@@ -20,6 +20,7 @@ import com.example.domain.QuickSoundOverride
 import com.example.domain.SoundCategory
 import com.example.domain.SoundCategorySetting
 import com.example.domain.SoundMode
+import com.example.domain.WidgetThemeMode
 import java.util.Calendar
 import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
@@ -321,6 +322,15 @@ class PrayerViewModel(application: Application) : AndroidViewModel(application) 
     }
   }
 
+  fun setWidgetThemeMode(mode: WidgetThemeMode) {
+    viewModelScope.launch {
+      repository.setWidgetThemeMode(mode)
+      _uiState.update {
+        it.copy(snackbarMessage = "Tema aplikasi & widget diubah: ${mode.label}")
+      }
+    }
+  }
+
   fun syncDraftFromSaved() {
     val prefs = _uiState.value.preferences
     _uiState.update {
@@ -420,6 +430,10 @@ class PrayerViewModel(application: Application) : AndroidViewModel(application) 
         )
       }
     }
+  }
+
+  fun showSnackbar(message: String) {
+    _uiState.update { it.copy(snackbarMessage = message) }
   }
 
   fun clearSnackbar() {

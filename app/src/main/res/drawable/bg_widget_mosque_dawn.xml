@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Sky Gradient: Deep Dawn Indigo -> Violet -> Warm Peach Horizon -->
+    <path android:pathData="M0,0 L200,0 L200,200 L0,200 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="100"
+                android:endY="200"
+                android:startX="100"
+                android:startY="0"
+                android:type="linear">
+                <item android:color="#FF1E1B4B" android:offset="0.0" />
+                <item android:color="#FF6D28D9" android:offset="0.48" />
+                <item android:color="#FFF472B6" android:offset="0.82" />
+                <item android:color="#FFFDBA74" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Dawn Stars -->
+    <path android:fillColor="#B3FFFFFF" android:pathData="M34,26 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0" />
+    <path android:fillColor="#99FFFFFF" android:pathData="M78,18 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0" />
+    <path android:fillColor="#B3FDE68A" android:pathData="M142,22 a1.5,1.5 0 1,0 3.0,0 a1.5,1.5 0 1,0 -3.0,0" />
+
+    <!-- Soft Dawn Crescent -->
+    <path
+        android:fillColor="#FFFDE68A"
+        android:pathData="M168,26 C161,26 155,32 155,39 C155,46 161,52 168,52 C164,50 162,45 162,39 C162,33 164,28 168,26 Z" />
+
+    <!-- Horizon Glow -->
+    <path
+        android:fillColor="#40FDE68A"
+        android:pathData="M0,152 Q100,126 200,152 L200,200 L0,200 Z" />
+
+    <!-- Mosque Silhouette (Deep Indigo-Plum) -->
+    <!-- Left Minaret -->
+    <path
+        android:fillColor="#FF2E1065"
+        android:pathData="M20,200 L20,122 L17,122 L24,104 L31,122 L28,122 L28,200 Z" />
+    <!-- Right Minaret -->
+    <path
+        android:fillColor="#FF2E1065"
+        android:pathData="M172,200 L172,122 L169,122 L176,104 L183,122 L180,122 L180,200 Z" />
+    <!-- Side Domes -->
+    <path
+        android:fillColor="#FF3B0764"
+        android:pathData="M42,200 L42,155 C42,140 62,135 62,135 C62,135 82,140 82,155 L82,200 Z" />
+    <path
+        android:fillColor="#FF3B0764"
+        android:pathData="M118,200 L118,155 C118,140 138,135 138,135 C138,135 158,140 158,155 L158,200 Z" />
+    <!-- Main Central Dome -->
+    <path
+        android:fillColor="#FF2E1065"
+        android:pathData="M68,200 L68,146 C68,122 100,104 100,104 C100,104 132,122 132,146 L132,200 Z" />
+    <!-- Spire -->
+    <path
+        android:fillColor="#FFFBBF24"
+        android:pathData="M99,105 L101,105 L100,94 Z" />
+    <!-- Warm Lit Arched Windows -->
+    <path
+        android:fillColor="#FFFCD34D"
+        android:pathData="M94,188 L94,172 C94,167 106,167 106,172 L106,188 Z" />
+    <path
+        android:fillColor="#CCFB923C"
+        android:pathData="M56,188 L56,176 C56,172 64,172 64,176 L64,188 Z" />
+    <path
+        android:fillColor="#CCFB923C"
+        android:pathData="M136,188 L136,176 C136,172 144,172 144,176 L144,188 Z" />
+
+    <!-- Readability Scrim -->
+    <path android:fillColor="#4D0F172A" android:pathData="M0,0 L200,0 L200,200 L0,200 Z" />
+</vector>

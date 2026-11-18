@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget Dark Theme Colors -->
+    <color name="widget_surface">#FF101D1B</color>
+    <color name="widget_border">#FF24403C</color>
+    <color name="widget_primary">#FF2DD4BF</color>
+    <color name="widget_on_primary">#FF042F2E</color>
+    <color name="widget_primary_soft">#FF153D38</color>
+    <color name="widget_text_primary">#FFE2E8F0</color>
+    <color name="widget_text_secondary">#FF94A3B8</color>
+    <color name="widget_slot_bg">#FF162825</color>
+    <color name="widget_imsak_accent">#FFFBBF24</color>
+</resources>

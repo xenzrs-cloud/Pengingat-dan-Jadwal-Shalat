@@ -2,6 +2,7 @@ package com.example.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.rounded.GpsFixed
 import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
@@ -44,6 +46,7 @@ import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.WbTwilight
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -77,8 +80,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,7 +97,10 @@ import com.example.domain.KemenagPrayerCalculator
 import com.example.domain.PrayerSlot
 import com.example.domain.PrayerType
 import com.example.domain.QuickSoundOverride
+import com.example.domain.WidgetThemeMode
 import com.example.ui.theme.JetBrainsMonoFamily
+import com.example.widget.DynamicDayPhase
+import com.example.widget.WidgetThemeHelper
 import java.util.Locale
 
 @Composable
@@ -103,12 +112,21 @@ fun ScheduleScreen(
   onRefreshGps: () -> Unit,
   onSelectCity: (IndonesianCity) -> Unit,
   onOpenSoundSettings: () -> Unit,
+  onSelectWidgetThemeMode: (WidgetThemeMode) -> Unit,
+  onPinWidgetStyle: (WidgetStyleOption) -> Unit,
   onToggleAlreadyPrayed: (PrayerType, Boolean) -> Unit,
   onSelectQuickOverride: (PrayerType, QuickSoundOverride) -> Unit,
   onSnackbarShown: () -> Unit,
 ) {
   val snackbarHostState = remember { SnackbarHostState() }
   var showCityPicker by remember { mutableStateOf(false) }
+  var showWidgetOptions by remember { mutableStateOf(false) }
+  var showThemePicker by remember { mutableStateOf(false) }
+
+  val currentPhase =
+    WidgetThemeHelper.resolveDynamicPhase(uiState.nowMillis, uiState.preferences.timeZoneId)
+  val activeMosqueDrawable =
+    resolveAppMosqueDrawable(uiState.preferences.widgetThemeMode, currentPhase)
 
   LaunchedEffect(uiState.snackbarMessage) {
     uiState.snackbarMessage?.let { msg ->
@@ -133,27 +151,42 @@ fun ScheduleScreen(
       return@Scaffold
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-      val isWide = maxWidth >= 720.dp
-      if (isWide) {
-        Row(
-          modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
-          horizontalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-          LazyColumn(
-            modifier = Modifier.weight(0.46f),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 24.dp),
+    Box(modifier = Modifier.fillMaxSize()) {
+      if (activeMosqueDrawable != null) {
+        Image(
+          painter = painterResource(id = activeMosqueDrawable),
+          contentDescription = null,
+          contentScale = ContentScale.Crop,
+          alpha = 0.16f,
+          modifier = Modifier.fillMaxSize(),
+        )
+      }
+
+      BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        val isWide = maxWidth >= 720.dp
+        if (isWide) {
+          Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
           ) {
-            item {
-              DashboardHeroSection(
-                uiState = uiState,
-                schedule = schedule,
-                onRefreshGps = onRefreshGps,
-                onOpenCityPicker = { showCityPicker = true },
-                onOpenSoundSettings = onOpenSoundSettings,
-              )
-            }
+            LazyColumn(
+              modifier = Modifier.weight(0.46f),
+              verticalArrangement = Arrangement.spacedBy(12.dp),
+              contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
+              item {
+                DashboardHeroSection(
+                  uiState = uiState,
+                  schedule = schedule,
+                  activePhase = currentPhase,
+                  mosqueBgRes = activeMosqueDrawable,
+                  onRefreshGps = onRefreshGps,
+                  onOpenCityPicker = { showCityPicker = true },
+                  onOpenThemePicker = { showThemePicker = true },
+                  onOpenSoundSettings = onOpenSoundSettings,
+                  onPinWidget = { showWidgetOptions = true },
+                )
+              }
             if (!hasNotificationPermission || !uiState.canScheduleExactAlarms) {
               item {
                 PermissionAlertBanner(
@@ -228,9 +261,13 @@ fun ScheduleScreen(
             DashboardHeroSection(
               uiState = uiState,
               schedule = schedule,
+              activePhase = currentPhase,
+              mosqueBgRes = activeMosqueDrawable,
               onRefreshGps = onRefreshGps,
               onOpenCityPicker = { showCityPicker = true },
+              onOpenThemePicker = { showThemePicker = true },
               onOpenSoundSettings = onOpenSoundSettings,
+              onPinWidget = { showWidgetOptions = true },
               modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
             )
           }
@@ -320,6 +357,7 @@ fun ScheduleScreen(
       }
     }
   }
+  }
 
   if (showCityPicker) {
     IndonesianCityPickerDialog(
@@ -330,20 +368,92 @@ fun ScheduleScreen(
       onDismiss = { showCityPicker = false },
     )
   }
+
+  if (showWidgetOptions) {
+    WidgetOptionsDialog(
+      uiState = uiState,
+      onSelectThemeMode = onSelectWidgetThemeMode,
+      onPinWidgetStyle = { styleOption ->
+        showWidgetOptions = false
+        onPinWidgetStyle(styleOption)
+      },
+      onDismiss = { showWidgetOptions = false },
+    )
+  }
+
+  if (showThemePicker) {
+    ThemePickerDialog(
+      selectedMode = uiState.preferences.widgetThemeMode,
+      currentPhase = currentPhase,
+      onSelectMode = onSelectWidgetThemeMode,
+      onDismiss = { showThemePicker = false },
+    )
+  }
+}
+
+private fun resolveAppMosqueDrawable(
+  mode: WidgetThemeMode,
+  currentPhase: DynamicDayPhase,
+): Int? {
+  val phase =
+    when (mode) {
+      WidgetThemeMode.DEFAULT -> return null
+      WidgetThemeMode.DYNAMIC_MOSQUE -> currentPhase
+      WidgetThemeMode.MOSQUE_DAY -> DynamicDayPhase.DAY
+      WidgetThemeMode.MOSQUE_SUNSET -> DynamicDayPhase.SUNSET
+      WidgetThemeMode.MOSQUE_NIGHT -> DynamicDayPhase.NIGHT
+    }
+  return when (phase) {
+    DynamicDayPhase.DAWN -> R.drawable.bg_widget_mosque_dawn
+    DynamicDayPhase.DAY -> R.drawable.bg_widget_mosque_day
+    DynamicDayPhase.SUNSET -> R.drawable.bg_widget_mosque_sunset
+    DynamicDayPhase.NIGHT -> R.drawable.bg_widget_mosque_night
+  }
+}
+
+private fun phaseAtmosphereLabel(
+  mode: WidgetThemeMode,
+  currentPhase: DynamicDayPhase,
+): String? {
+  val phase =
+    when (mode) {
+      WidgetThemeMode.DEFAULT -> return null
+      WidgetThemeMode.DYNAMIC_MOSQUE -> currentPhase
+      WidgetThemeMode.MOSQUE_DAY -> DynamicDayPhase.DAY
+      WidgetThemeMode.MOSQUE_SUNSET -> DynamicDayPhase.SUNSET
+      WidgetThemeMode.MOSQUE_NIGHT -> DynamicDayPhase.NIGHT
+    }
+  return when (phase) {
+    DynamicDayPhase.DAWN -> "Suasana Fajar"
+    DynamicDayPhase.DAY -> "Suasana Siang"
+    DynamicDayPhase.SUNSET -> "Suasana Senja"
+    DynamicDayPhase.NIGHT -> "Suasana Malam"
+  }
 }
 
 @Composable
 private fun DashboardHeroSection(
   uiState: PrayerUiState,
   schedule: DailyPrayerSchedule,
+  activePhase: DynamicDayPhase,
+  mosqueBgRes: Int?,
   onRefreshGps: () -> Unit,
   onOpenCityPicker: () -> Unit,
+  onOpenThemePicker: () -> Unit,
   onOpenSoundSettings: () -> Unit,
+  onPinWidget: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val primaryColor = MaterialTheme.colorScheme.primary
   val tertiaryColor = MaterialTheme.colorScheme.tertiary
   val containerHighlight = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.08f)
+  val isMosqueTheme = mosqueBgRes != null
+  val heroTextColor = if (isMosqueTheme) Color.White else MaterialTheme.colorScheme.onPrimary
+  val heroButtonAccent =
+    if (isMosqueTheme && activePhase == DynamicDayPhase.DAY) Color(0xFF0369A1)
+    else MaterialTheme.colorScheme.primary
+  val atmosphereLabel =
+    phaseAtmosphereLabel(uiState.preferences.widgetThemeMode, activePhase)
 
   val dateText =
     remember(schedule.dateKey, schedule.timeZoneId) {
@@ -365,27 +475,51 @@ private fun DashboardHeroSection(
     Box(
       modifier =
         Modifier.fillMaxWidth()
-          .background(
-            brush =
-              Brush.linearGradient(
-                colors = listOf(primaryColor, tertiaryColor)
-              )
+          .then(
+            if (isMosqueTheme) {
+              Modifier.background(Color(0xFF0F172A))
+            } else {
+              Modifier.background(
+                  brush = Brush.linearGradient(colors = listOf(primaryColor, tertiaryColor))
+                )
+                .drawBehind {
+                  drawCircle(
+                    color = containerHighlight,
+                    radius = size.width * 0.36f,
+                    center = Offset(size.width * 0.92f, size.height * 0.14f),
+                  )
+                  drawCircle(
+                    color = containerHighlight,
+                    radius = size.width * 0.22f,
+                    center = Offset(size.width * 0.10f, size.height * 0.95f),
+                  )
+                }
+            }
           )
-          .drawBehind {
-            drawCircle(
-              color = containerHighlight,
-              radius = size.width * 0.36f,
-              center = Offset(size.width * 0.92f, size.height * 0.14f),
-            )
-            drawCircle(
-              color = containerHighlight,
-              radius = size.width * 0.22f,
-              center = Offset(size.width * 0.10f, size.height * 0.95f),
-            )
-          }
-          .padding(18.dp)
     ) {
-      Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+      if (mosqueBgRes != null) {
+        Image(
+          painter = painterResource(id = mosqueBgRes),
+          contentDescription = null,
+          contentScale = ContentScale.Crop,
+          modifier = Modifier.matchParentSize(),
+        )
+        val scrimColor =
+          if (activePhase == DynamicDayPhase.DAY &&
+            uiState.preferences.widgetThemeMode != WidgetThemeMode.MOSQUE_NIGHT &&
+            uiState.preferences.widgetThemeMode != WidgetThemeMode.MOSQUE_SUNSET
+          ) {
+            Color(0xFF0C4A6E).copy(alpha = 0.42f)
+          } else {
+            Color(0xFF020617).copy(alpha = 0.36f)
+          }
+        Box(modifier = Modifier.matchParentSize().background(scrimColor))
+      }
+
+      Column(
+        modifier = Modifier.fillMaxWidth().padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween,
@@ -395,30 +529,79 @@ private fun DashboardHeroSection(
             Text(
               text = stringResource(R.string.app_name),
               style = MaterialTheme.typography.headlineSmall,
-              color = MaterialTheme.colorScheme.onPrimary,
+              color = heroTextColor,
               fontWeight = FontWeight.Bold,
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
               text = dateText,
               style = MaterialTheme.typography.bodyMedium,
-              color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f),
+              color = heroTextColor.copy(alpha = 0.90f),
             )
+            if (atmosphereLabel != null) {
+              Spacer(modifier = Modifier.height(6.dp))
+              Surface(
+                shape = RoundedCornerShape(100.dp),
+                color = Color.White.copy(alpha = 0.20f),
+              ) {
+                Text(
+                  text = atmosphereLabel,
+                  style = MaterialTheme.typography.labelSmall,
+                  color = Color.White,
+                  fontWeight = FontWeight.SemiBold,
+                  modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                )
+              }
+            }
           }
 
-          Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
-          ) {
-            IconButton(
-              onClick = onOpenSoundSettings,
-              modifier = Modifier.minimumInteractiveComponentSize().testTag("sound_settings_button"),
+          Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Surface(
+              shape = CircleShape,
+              color = heroTextColor.copy(alpha = 0.20f),
             ) {
-              Icon(
-                imageVector = Icons.Rounded.Settings,
-                contentDescription = stringResource(R.string.cd_sound_settings),
-                tint = MaterialTheme.colorScheme.onPrimary,
-              )
+              IconButton(
+                onClick = onOpenThemePicker,
+                modifier = Modifier.minimumInteractiveComponentSize().testTag("theme_picker_button"),
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Palette,
+                  contentDescription = stringResource(R.string.cd_theme_picker),
+                  tint = heroTextColor,
+                )
+              }
+            }
+
+            Surface(
+              shape = CircleShape,
+              color = heroTextColor.copy(alpha = 0.20f),
+            ) {
+              IconButton(
+                onClick = onPinWidget,
+                modifier = Modifier.minimumInteractiveComponentSize().testTag("pin_widget_button"),
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Widgets,
+                  contentDescription = stringResource(R.string.cd_pin_widget),
+                  tint = heroTextColor,
+                )
+              }
+            }
+
+            Surface(
+              shape = CircleShape,
+              color = heroTextColor.copy(alpha = 0.20f),
+            ) {
+              IconButton(
+                onClick = onOpenSoundSettings,
+                modifier = Modifier.minimumInteractiveComponentSize().testTag("sound_settings_button"),
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Settings,
+                  contentDescription = stringResource(R.string.cd_sound_settings),
+                  tint = heroTextColor,
+                )
+              }
             }
           }
         }
@@ -426,7 +609,7 @@ private fun DashboardHeroSection(
         // Location Info Pill
         Surface(
           shape = RoundedCornerShape(14.dp),
-          color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
+          color = heroTextColor.copy(alpha = 0.16f),
         ) {
           Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -438,14 +621,14 @@ private fun DashboardHeroSection(
                 if (uiState.preferences.isGpsLocation) Icons.Rounded.GpsFixed
                 else Icons.Rounded.LocationCity,
               contentDescription = null,
-              tint = MaterialTheme.colorScheme.onPrimary,
+              tint = heroTextColor,
               modifier = Modifier.size(20.dp),
             )
             Column(modifier = Modifier.weight(1f)) {
               Text(
                 text = uiState.preferences.locationName,
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = heroTextColor,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -453,7 +636,7 @@ private fun DashboardHeroSection(
               Text(
                 text = "Koordinat: $coordText • ${schedule.timeZoneId}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f),
+                color = heroTextColor.copy(alpha = 0.85f),
               )
             }
           }
@@ -471,7 +654,7 @@ private fun DashboardHeroSection(
                 .clip(RoundedCornerShape(12.dp))
                 .clickable(enabled = !uiState.isLoadingLocation, onClick = onRefreshGps)
                 .testTag("refresh_gps_button"),
-            color = MaterialTheme.colorScheme.onPrimary,
+            color = Color.White,
             shape = RoundedCornerShape(12.dp),
           ) {
             Row(
@@ -483,13 +666,13 @@ private fun DashboardHeroSection(
                 CircularProgressIndicator(
                   modifier = Modifier.size(16.dp),
                   strokeWidth = 2.dp,
-                  color = MaterialTheme.colorScheme.primary,
+                  color = heroButtonAccent,
                 )
               } else {
                 Icon(
                   imageVector = Icons.Rounded.MyLocation,
                   contentDescription = stringResource(R.string.cd_gps_refresh),
-                  tint = MaterialTheme.colorScheme.primary,
+                  tint = heroButtonAccent,
                   modifier = Modifier.size(18.dp),
                 )
               }
@@ -497,7 +680,7 @@ private fun DashboardHeroSection(
               Text(
                 text = stringResource(R.string.action_refresh_gps),
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
+                color = heroButtonAccent,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
@@ -511,9 +694,9 @@ private fun DashboardHeroSection(
                 .clip(RoundedCornerShape(12.dp))
                 .clickable(onClick = onOpenCityPicker)
                 .testTag("choose_city_button"),
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f),
+            color = heroTextColor.copy(alpha = 0.20f),
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f)),
+            border = BorderStroke(1.dp, heroTextColor.copy(alpha = 0.42f)),
           ) {
             Row(
               modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
@@ -523,14 +706,14 @@ private fun DashboardHeroSection(
               Icon(
                 imageVector = Icons.Rounded.LocationCity,
                 contentDescription = stringResource(R.string.cd_choose_city),
-                tint = MaterialTheme.colorScheme.onPrimary,
+                tint = heroTextColor,
                 modifier = Modifier.size(18.dp),
               )
               Spacer(modifier = Modifier.width(6.dp))
               Text(
                 text = stringResource(R.string.action_choose_city),
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = heroTextColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )

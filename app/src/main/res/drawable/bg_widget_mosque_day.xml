@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Bright Daylight Sky Gradient: Azure -> Sky Cyan -> Soft Mint Horizon -->
+    <path android:pathData="M0,0 L200,0 L200,200 L0,200 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="100"
+                android:endY="200"
+                android:startX="100"
+                android:startY="0"
+                android:type="linear">
+                <item android:color="#FF0EA5E9" android:offset="0.0" />
+                <item android:color="#FF38BDF8" android:offset="0.45" />
+                <item android:color="#FF99F6E4" android:offset="0.85" />
+                <item android:color="#FFD1FAE5" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Warm Bright Sun -->
+    <path
+        android:fillColor="#4DFEF08A"
+        android:pathData="M166,34 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0" />
+    <path
+        android:fillColor="#FFFDE047"
+        android:pathData="M166,34 m-12,0 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0" />
+
+    <!-- Soft Fluffy Daylight Clouds -->
+    <path
+        android:fillColor="#99FFFFFF"
+        android:pathData="M24,48 C24,42 30,38 36,40 C40,34 50,35 53,42 C58,42 62,46 61,51 L24,51 Z" />
+    <path
+        android:fillColor="#80FFFFFF"
+        android:pathData="M114,58 C114,53 119,50 124,52 C128,47 136,48 139,54 C143,54 146,57 145,61 L114,61 Z" />
+
+    <!-- Soft Emerald Hills -->
+    <path
+        android:fillColor="#FF10B981"
+        android:pathData="M0,168 Q60,148 130,165 Q170,174 200,158 L200,200 L0,200 Z" />
+
+    <!-- Daylight Mosque (Crisp White & Emerald Domes) -->
+    <!-- Left Minaret -->
+    <path
+        android:fillColor="#FFF8FAFC"
+        android:pathData="M20,200 L20,124 L28,124 L28,200 Z" />
+    <path
+        android:fillColor="#FF0F766E"
+        android:pathData="M17,124 L24,104 L31,124 Z" />
+    <!-- Right Minaret -->
+    <path
+        android:fillColor="#FFF8FAFC"
+        android:pathData="M172,200 L172,124 L180,124 L180,200 Z" />
+    <path
+        android:fillColor="#FF0F766E"
+        android:pathData="M169,124 L176,104 L183,124 Z" />
+    <!-- Side Domes & Walls -->
+    <path
+        android:fillColor="#FFE2E8F0"
+        android:pathData="M44,200 L44,158 L80,158 L80,200 Z" />
+    <path
+        android:fillColor="#FF0D9488"
+        android:pathData="M44,158 C44,144 62,138 62,138 C62,138 80,144 80,158 Z" />
+    <path
+        android:fillColor="#FFE2E8F0"
+        android:pathData="M120,200 L120,158 L156,158 L156,200 Z" />
+    <path
+        android:fillColor="#FF0D9488"
+        android:pathData="M120,158 C120,144 138,138 138,138 C138,138 156,144 156,158 Z" />
+    <!-- Main Mosque Body & Emerald Dome -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M70,200 L70,148 L130,148 L130,200 Z" />
+    <path
+        android:fillColor="#FF0F766E"
+        android:pathData="M68,148 C68,124 100,106 100,106 C100,106 132,124 132,148 Z" />
+    <path
+        android:fillColor="#FFF59E0B"
+        android:pathData="M99,106 L101,106 L100,95 Z" />
+    <!-- Arched Entrance -->
+    <path
+        android:fillColor="#FF0F766E"
+        android:pathData="M93,200 L93,174 C93,167 107,167 107,174 L107,200 Z" />
+
+    <!-- Soft Light Overlay so dark text stays razor-sharp -->
+    <path android:fillColor="#4DFFFFFF" android:pathData="M0,0 L200,0 L200,200 L0,200 Z" />
+</vector>

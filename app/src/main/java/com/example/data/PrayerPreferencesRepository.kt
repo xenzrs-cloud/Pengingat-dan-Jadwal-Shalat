@@ -18,6 +18,7 @@ import com.example.domain.QuickSoundOverride
 import com.example.domain.SoundCategory
 import com.example.domain.SoundCategorySetting
 import com.example.domain.SoundMode
+import com.example.domain.WidgetThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -36,6 +37,7 @@ class PrayerPreferencesRepository(private val context: Context) {
     val CHANNEL_VERSION = intPreferencesKey("channel_version")
     val CHECKED_DATE_KEY = stringPreferencesKey("checked_date_key")
     val CHECKED_PRAYERS = stringSetPreferencesKey("checked_prayers")
+    val WIDGET_THEME_MODE = stringPreferencesKey("widget_theme_mode")
 
     fun modeKey(category: SoundCategory) = stringPreferencesKey("sound_mode_${category.id}")
 
@@ -115,6 +117,12 @@ class PrayerPreferencesRepository(private val context: Context) {
     }
   }
 
+  suspend fun setWidgetThemeMode(mode: WidgetThemeMode) {
+    context.prayerDataStore.edit { prefs ->
+      prefs[Keys.WIDGET_THEME_MODE] = mode.id
+    }
+  }
+
   suspend fun saveSoundSettingsAndBumpChannelVersion(
     prayerEntry: SoundCategorySetting,
     imsakEntry: SoundCategorySetting,
@@ -173,6 +181,7 @@ class PrayerPreferencesRepository(private val context: Context) {
       checkedDateKey = prefs[Keys.CHECKED_DATE_KEY] ?: "",
       checkedPrayers = checkedPrayers,
       channelVersion = prefs[Keys.CHANNEL_VERSION] ?: 1,
+      widgetThemeMode = WidgetThemeMode.fromId(prefs[Keys.WIDGET_THEME_MODE]),
     )
   }
 

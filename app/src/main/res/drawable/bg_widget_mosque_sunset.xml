@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Vibrant Sunset Gradient: Deep Plum -> Magenta -> Sunset Orange -> Amber Gold -->
+    <path android:pathData="M0,0 L200,0 L200,200 L0,200 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="100"
+                android:endY="200"
+                android:startX="100"
+                android:startY="0"
+                android:type="linear">
+                <item android:color="#FF4C1D95" android:offset="0.0" />
+                <item android:color="#FFBE185D" android:offset="0.45" />
+                <item android:color="#FFF97316" android:offset="0.80" />
+                <item android:color="#FFFACC15" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Setting Sun Glow -->
+    <path
+        android:fillColor="#55FDE047"
+        android:pathData="M100,136 m-36,0 a36,36 0 1,0 72,0 a36,36 0 1,0 -72,0" />
+    <path
+        android:fillColor="#CCFEF08A"
+        android:pathData="M100,136 m-20,0 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0" />
+
+    <!-- Sunset Mosque Silhouette (Rich Deep Violet-Indigo) -->
+    <!-- Left Minaret -->
+    <path
+        android:fillColor="#FF3B0764"
+        android:pathData="M22,200 L22,118 L19,118 L26,98 L33,118 L30,118 L30,200 Z" />
+    <!-- Right Minaret -->
+    <path
+        android:fillColor="#FF3B0764"
+        android:pathData="M170,200 L170,118 L167,118 L174,98 L181,118 L178,118 L178,200 Z" />
+    <!-- Side Domes -->
+    <path
+        android:fillColor="#FF4C1D95"
+        android:pathData="M44,200 L44,154 C44,140 62,135 62,135 C62,135 80,140 80,154 L80,200 Z" />
+    <path
+        android:fillColor="#FF4C1D95"
+        android:pathData="M120,200 L120,154 C120,140 138,135 138,135 C138,135 156,140 156,154 L156,200 Z" />
+    <!-- Main Central Dome -->
+    <path
+        android:fillColor="#FF2E1065"
+        android:pathData="M68,200 L68,146 C68,122 100,104 100,104 C100,104 132,122 132,146 L132,200 Z" />
+    <path
+        android:fillColor="#FFFBBF24"
+        android:pathData="M99,105 L101,105 L100,94 Z" />
+    <!-- Glowing Arched Windows -->
+    <path
+        android:fillColor="#FFFDE047"
+        android:pathData="M94,188 L94,172 C94,167 106,167 106,172 L106,188 Z" />
+    <path
+        android:fillColor="#CCFDBA74"
+        android:pathData="M58,188 L58,176 C58,172 66,172 66,176 L66,188 Z" />
+    <path
+        android:fillColor="#CCFDBA74"
+        android:pathData="M134,188 L134,176 C134,172 142,172 142,176 L142,188 Z" />
+
+    <!-- Subtle Readability Scrim -->
+    <path android:fillColor="#4D0F172A" android:pathData="M0,0 L200,0 L200,200 L0,200 Z" />
+</vector>

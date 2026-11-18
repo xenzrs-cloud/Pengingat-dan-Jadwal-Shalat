@@ -80,6 +80,39 @@ enum class QuickSoundOverride(val id: String, val label: String) {
   }
 }
 
+enum class WidgetThemeMode(val id: String, val label: String, val description: String) {
+  DEFAULT(
+    id = "default",
+    label = "Tema Default",
+    description = "Tampilan bersih hijau zamrud mengikuti tema sistem",
+  ),
+  DYNAMIC_MOSQUE(
+    id = "dynamic_mosque",
+    label = "Masjid Dinamis (Siang & Malam)",
+    description = "Latar masjid berwarna yang otomatis berubah sesuai waktu (Fajar, Siang, Senja, Malam)",
+  ),
+  MOSQUE_DAY(
+    id = "mosque_day",
+    label = "Masjid Siang Cerah",
+    description = "Langit biru cerah dengan ilustrasi masjid hijau zamrud",
+  ),
+  MOSQUE_SUNSET(
+    id = "mosque_sunset",
+    label = "Masjid Senja Hangat",
+    description = "Gradasi senja jingga-ungu dengan siluet masjid bercahaya",
+  ),
+  MOSQUE_NIGHT(
+    id = "mosque_night",
+    label = "Masjid Malam Berbintang",
+    description = "Langit malam berbintang dengan bulan sabit dan lampu masjid",
+  );
+
+  companion object {
+    fun fromId(id: String?): WidgetThemeMode =
+      entries.firstOrNull { it.id == id } ?: DYNAMIC_MOSQUE
+  }
+}
+
 data class SoundCategorySetting(
   val mode: SoundMode = SoundMode.DEFAULT_ADZAN,
   val customFileName: String? = null,
@@ -174,6 +207,7 @@ data class PrayerPreferences(
   val checkedDateKey: String = "",
   val checkedPrayers: Set<PrayerType> = emptySet(),
   val channelVersion: Int = 1,
+  val widgetThemeMode: WidgetThemeMode = WidgetThemeMode.DYNAMIC_MOSQUE,
 ) {
   fun settingFor(category: SoundCategory): SoundCategorySetting =
     when (category) {
