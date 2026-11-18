@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Pengingat Shalat &amp; Imsak</string>
+    <string name="nav_schedule">Jadwal</string>
+    <string name="nav_sound_settings">Pengaturan Suara</string>
+    <string name="action_refresh_gps">Perbarui GPS</string>
+    <string name="action_choose_city">Pilih Kota</string>
+    <string name="action_sound_settings">Pengaturan Suara</string>
+    <string name="action_save_apply">Simpan &amp; Terapkan Jadwal</string>
+    <string name="action_test_sound">Tes Suara</string>
+    <string name="action_stop_sound">Hentikan Suara</string>
+    <string name="action_pick_audio">Pilih File Audio</string>
+    <string name="label_already_prayed">Sudah Shalat</string>
+    <string name="label_imsak_subtitle">10 menit sebelum Subuh</string>
+    <string name="label_kemenag_standard">Standar Kemenag RI • Subuh 20° / Isya 18°</string>
+    <string name="label_next_prayer">Menuju Waktu Berikutnya</string>
+    <string name="label_active_remaining">Sisa Waktu Shalat Aktif</string>
+    <string name="cd_back">Kembali</string>
+    <string name="cd_gps_refresh">Perbarui koordinat GPS</string>
+    <string name="cd_choose_city">Pilih kota di Indonesia</string>
+    <string name="cd_sound_settings">Buka Pengaturan Suara</string>
+    <string name="cd_imsak_icon">Ikon waktu Imsak</string>
+    <string name="cd_prayer_icon">Ikon waktu shalat</string>
+    <string name="cd_play_sound">Putar pratinjau suara</string>
+    <string name="cd_stop_sound">Hentikan pratinjau suara</string>
+</resources>

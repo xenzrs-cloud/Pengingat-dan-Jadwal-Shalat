@@ -1,0 +1,6 @@
+{
+  "name": "Pengingat Shalat & Imsak",
+  "description": "Aplikasi jadwal shalat dan Imsak 100% offline standar Kemenag RI dengan alarm presisi, audio kustom, dan pengingat akhir waktu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
