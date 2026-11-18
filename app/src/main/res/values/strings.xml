@@ -23,11 +23,14 @@
     <string name="cd_play_sound">Putar pratinjau suara</string>
     <string name="cd_stop_sound">Hentikan pratinjau suara</string>
     <string name="widget_description">Menampilkan jadwal Imsak dan 5 waktu shalat harian secara offline (Kemenag RI).</string>
-    <string name="widget_label_grid">Jadwal Mini (2x2)</string>
-    <string name="widget_description_grid">Widget 2x2 ringkas berisi 6 waktu (Imsak hingga Isya) dengan latar masjid dinamis.</string>
-    <string name="widget_label_compact">Shalat Berikutnya (2x2)</string>
-    <string name="widget_description_compact">Widget 2x2 fokus pada waktu shalat berikutnya dan jam aktif dengan latar masjid dinamis.</string>
+    <string name="widget_label_grid">Jadwal Shalat (2x2)</string>
+    <string name="widget_description_grid">Widget 2x2 ringkas berisi 6 waktu (Imsak hingga Isya) dengan pilihan tema widget tersendiri.</string>
+    <string name="widget_label_3x2">Jadwal &amp; Berikutnya (3x2)</string>
+    <string name="widget_description_3x2">Widget 3x2 menampilkan shalat berikutnya dan jadwal 6 waktu harian.</string>
+    <string name="widget_label_4x2">Jadwal Lengkap (4x2)</string>
+    <string name="widget_description_4x2">Widget 4x2 lebar dengan info shalat aktif dan 6 jadwal harian lega.</string>
     <string name="cd_widget_refresh">Perbarui jadwal widget</string>
-    <string name="cd_pin_widget">Pasang widget ke layar utama</string>
-    <string name="cd_theme_picker">Pilih tema tampilan aplikasi dan widget</string>
+    <string name="cd_widget_theme">Ganti tema widget</string>
+    <string name="cd_pin_widget">Pasang widget 2x2, 3x2, atau 4x2</string>
+    <string name="cd_theme_picker">Pilih tema tampilan aplikasi</string>
 </resources>

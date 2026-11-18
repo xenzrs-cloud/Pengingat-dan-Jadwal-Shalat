@@ -32,8 +32,9 @@ import com.example.ui.ScheduleScreen
 import com.example.ui.SoundSettingsScreen
 import com.example.ui.WidgetStyleOption
 import com.example.ui.theme.PengingatShalatTheme
-import com.example.widget.CompactPrayerWidgetProvider
+import com.example.widget.MediumPrayerWidgetProvider
 import com.example.widget.PrayerScheduleWidgetProvider
+import com.example.widget.WidePrayerWidgetProvider
 import com.example.widget.WidgetThemeHelper
 
 object AppRoutes {
@@ -60,7 +61,7 @@ class MainActivity : ComponentActivity() {
         )
 
       PengingatShalatTheme(
-        themeMode = uiState.preferences.widgetThemeMode,
+        themeMode = uiState.preferences.appThemeMode,
         dynamicPhase = dynamicPhase,
       ) {
         val navController = rememberNavController()
@@ -143,17 +144,20 @@ class MainActivity : ComponentActivity() {
                 vm.syncDraftFromSaved()
                 navController.navigate(AppRoutes.ROUTE_SOUND_SETTINGS)
               },
+              onSelectAppThemeMode = { mode -> vm.setAppThemeMode(mode) },
               onSelectWidgetThemeMode = { mode -> vm.setWidgetThemeMode(mode) },
               onPinWidgetStyle = { styleOption ->
                 val targetClass =
                   when (styleOption) {
-                    WidgetStyleOption.GRID_2X2 -> PrayerScheduleWidgetProvider::class.java
-                    WidgetStyleOption.COMPACT_2X2 -> CompactPrayerWidgetProvider::class.java
+                    WidgetStyleOption.SIZE_2X2 -> PrayerScheduleWidgetProvider::class.java
+                    WidgetStyleOption.SIZE_3X2 -> MediumPrayerWidgetProvider::class.java
+                    WidgetStyleOption.SIZE_4X2 -> WidePrayerWidgetProvider::class.java
                   }
                 val label =
                   when (styleOption) {
-                    WidgetStyleOption.GRID_2X2 -> "Jadwal Mini (2x2)"
-                    WidgetStyleOption.COMPACT_2X2 -> "Shalat Berikutnya (2x2)"
+                    WidgetStyleOption.SIZE_2X2 -> "Jadwal Shalat (2x2)"
+                    WidgetStyleOption.SIZE_3X2 -> "Jadwal & Berikutnya (3x2)"
+                    WidgetStyleOption.SIZE_4X2 -> "Jadwal Lengkap (4x2)"
                   }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                   val manager = AppWidgetManager.getInstance(context)

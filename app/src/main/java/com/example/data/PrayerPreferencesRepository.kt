@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.domain.AppThemeMode
 import com.example.domain.IndonesianCities
 import com.example.domain.IndonesianCity
 import com.example.domain.PrayerPreferences
@@ -37,6 +38,7 @@ class PrayerPreferencesRepository(private val context: Context) {
     val CHANNEL_VERSION = intPreferencesKey("channel_version")
     val CHECKED_DATE_KEY = stringPreferencesKey("checked_date_key")
     val CHECKED_PRAYERS = stringSetPreferencesKey("checked_prayers")
+    val APP_THEME_MODE = stringPreferencesKey("app_theme_mode")
     val WIDGET_THEME_MODE = stringPreferencesKey("widget_theme_mode")
 
     fun modeKey(category: SoundCategory) = stringPreferencesKey("sound_mode_${category.id}")
@@ -117,6 +119,12 @@ class PrayerPreferencesRepository(private val context: Context) {
     }
   }
 
+  suspend fun setAppThemeMode(mode: AppThemeMode) {
+    context.prayerDataStore.edit { prefs ->
+      prefs[Keys.APP_THEME_MODE] = mode.id
+    }
+  }
+
   suspend fun setWidgetThemeMode(mode: WidgetThemeMode) {
     context.prayerDataStore.edit { prefs ->
       prefs[Keys.WIDGET_THEME_MODE] = mode.id
@@ -181,6 +189,7 @@ class PrayerPreferencesRepository(private val context: Context) {
       checkedDateKey = prefs[Keys.CHECKED_DATE_KEY] ?: "",
       checkedPrayers = checkedPrayers,
       channelVersion = prefs[Keys.CHANNEL_VERSION] ?: 1,
+      appThemeMode = AppThemeMode.fromId(prefs[Keys.APP_THEME_MODE]),
       widgetThemeMode = WidgetThemeMode.fromId(prefs[Keys.WIDGET_THEME_MODE]),
     )
   }

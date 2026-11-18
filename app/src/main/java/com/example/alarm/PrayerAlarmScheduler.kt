@@ -32,7 +32,8 @@ object PrayerAlarmScheduler {
     preferences: PrayerPreferences,
     nowMillis: Long = System.currentTimeMillis(),
   ) {
-    NotificationChannelManager.ensureAllChannels(context, preferences)
+    runCatching { PrayerScheduleWidgetProvider.updateAllWidgetsWithPrefs(context, preferences) }
+    runCatching { NotificationChannelManager.ensureAllChannels(context, preferences) }
 
     val (today, tomorrow) =
       KemenagPrayerCalculator.calculateTodayAndTomorrow(
@@ -43,9 +44,8 @@ object PrayerAlarmScheduler {
         locationName = preferences.locationName,
       )
 
-    scheduleForDay(context, today, preferences, nowMillis)
-    scheduleForDay(context, tomorrow, preferences, nowMillis)
-    runCatching { PrayerScheduleWidgetProvider.updateAllWidgetsWithPrefs(context, preferences) }
+    runCatching { scheduleForDay(context, today, preferences, nowMillis) }
+    runCatching { scheduleForDay(context, tomorrow, preferences, nowMillis) }
   }
 
   fun scheduleForDay(

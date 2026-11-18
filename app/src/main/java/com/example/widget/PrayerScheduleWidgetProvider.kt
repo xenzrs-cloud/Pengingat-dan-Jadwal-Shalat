@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Widget Opsi 1 (2x2): Jadwal Mini berisi 6 waktu harian (Imsak, Subuh, Dzuhur, Ashar, Maghrib, Isya)
- * dengan dukungan tema Default maupun latar masjid dinamis siang/malam.
+ * dengan tema widget terpisah (tidak memengaruhi tema aplikasi).
  */
 class PrayerScheduleWidgetProvider : AppWidgetProvider() {
 
@@ -46,15 +46,32 @@ class PrayerScheduleWidgetProvider : AppWidgetProvider() {
 
   override fun onReceive(context: Context, intent: Intent) {
     super.onReceive(context, intent)
-    if (intent.action == ACTION_REFRESH_WIDGET) {
-      val pendingResult = goAsync()
-      val appContext = context.applicationContext
-      CoroutineScope(Dispatchers.IO).launch {
-        try {
-          val prefs = PrayerPreferencesRepository(appContext).getCurrent()
-          updateAllWidgetsWithPrefs(appContext, prefs)
-        } finally {
-          pendingResult.finish()
+    when (intent.action) {
+      ACTION_REFRESH_WIDGET -> {
+        val pendingResult = goAsync()
+        val appContext = context.applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+          try {
+            val prefs = PrayerPreferencesRepository(appContext).getCurrent()
+            updateAllWidgetsWithPrefs(appContext, prefs)
+          } finally {
+            pendingResult.finish()
+          }
+        }
+      }
+      ACTION_CYCLE_THEME -> {
+        val pendingResult = goAsync()
+        val appContext = context.applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+          try {
+            val repo = PrayerPreferencesRepository(appContext)
+            val currentPrefs = repo.getCurrent()
+            val nextTheme = WidgetThemeHelper.nextMode(currentPrefs.widgetThemeMode)
+            repo.setWidgetThemeMode(nextTheme)
+            updateAllWidgetsWithPrefs(appContext, currentPrefs.copy(widgetThemeMode = nextTheme))
+          } finally {
+            pendingResult.finish()
+          }
         }
       }
     }
@@ -62,6 +79,7 @@ class PrayerScheduleWidgetProvider : AppWidgetProvider() {
 
   companion object {
     const val ACTION_REFRESH_WIDGET = "com.example.widget.ACTION_REFRESH_WIDGET"
+    const val ACTION_CYCLE_THEME = "com.example.widget.ACTION_CYCLE_THEME"
 
     fun updateAllWidgets(context: Context) {
       val appContext = context.applicationContext
@@ -82,8 +100,9 @@ class PrayerScheduleWidgetProvider : AppWidgetProvider() {
         gridIds.forEach { widgetId -> manager.updateAppWidget(widgetId, views) }
       }
 
-      // Update Compact Hero 2x2 Widgets
-      CompactPrayerWidgetProvider.updateWithPrefs(context, manager, prefs)
+      // Update Medium 3x2 & Wide 4x2 Widgets
+      MediumPrayerWidgetProvider.updateWithPrefs(context, manager, prefs)
+      WidePrayerWidgetProvider.updateWithPrefs(context, manager, prefs)
     }
 
     fun buildRemoteViews(
@@ -115,25 +134,26 @@ class PrayerScheduleWidgetProvider : AppWidgetProvider() {
           .map { today.slotOf(it) }
           .firstOrNull { it.startEpochMillis > nowMillis }
 
-      val style =
-        WidgetThemeHelper.resolveStyle(
-          context = context,
-          mode = prefs.widgetThemeMode,
-          nowMillis = nowMillis,
-          timeZoneId = prefs.timeZoneId,
-        )
+      val style = WidgetThemeHelper.resolveStyle(context, prefs.widgetThemeMode)
 
       val views = RemoteViews(context.packageName, R.layout.widget_prayer_schedule)
 
       if (style.backgroundImageRes != null) {
         views.setViewVisibility(R.id.widget_bg_image, View.VISIBLE)
-        views.setImageViewResource(R.id.widget_bg_image, style.backgroundImageRes)
+        val bitmap = WidgetThemeHelper.renderBackgroundBitmap(context, style.backgroundImageRes)
+        if (bitmap != null) {
+          views.setImageViewBitmap(R.id.widget_bg_image, bitmap)
+        } else {
+          views.setImageViewResource(R.id.widget_bg_image, style.backgroundImageRes)
+        }
       } else {
+        views.setImageViewBitmap(R.id.widget_bg_image, null)
         views.setViewVisibility(R.id.widget_bg_image, View.GONE)
       }
 
       views.setTextViewText(R.id.widget_location, prefs.locationName)
       views.setTextColor(R.id.widget_location, style.primaryTextColor)
+      views.setImageViewResource(R.id.widget_theme_btn, style.paletteIconRes)
       views.setImageViewResource(R.id.widget_refresh_btn, style.refreshIconRes)
 
       val timeViews =
@@ -208,6 +228,20 @@ class PrayerScheduleWidgetProvider : AppWidgetProvider() {
           PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
       views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent)
+
+      // Tap palette icon -> cycle theme mode & sync both app and all widgets
+      val themeIntent =
+        Intent(context, PrayerScheduleWidgetProvider::class.java).apply {
+          action = ACTION_CYCLE_THEME
+        }
+      val themePendingIntent =
+        PendingIntent.getBroadcast(
+          context,
+          9005,
+          themeIntent,
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+      views.setOnClickPendingIntent(R.id.widget_theme_btn, themePendingIntent)
 
       // Tap refresh icon -> update all widgets immediately
       val refreshIntent =

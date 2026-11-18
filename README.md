@@ -1,25 +1,21 @@
 # Pengingat Shalat & Imsak
 
-Aplikasi Android (Kotlin & Jetpack Compose) untuk jadwal shalat dan Imsak **100% offline** sesuai standar **Kementerian Agama Republik Indonesia (Kemenag RI)**, dilengkapi alarm presisi (`Exact Alarm`), pengingat H-30 & H-15 menit sebelum waktu habis, Smart Cancel **Sudah Shalat**, serta dukungan file audio lokal.
+Aplikasi Android (Kotlin & Jetpack Compose) untuk jadwal shalat dan Imsak **100% offline** sesuai standar **Kementerian Agama Republik Indonesia (Kemenag RI)**, dilengkapi alarm presisi (`Exact Alarm`), pengingat H-30 & H-15 menit sebelum waktu habis, Smart Cancel **Sudah Shalat**, dukungan file audio lokal, **tema aplikasi dinamis sesuai jam**, serta **3 pilihan ukuran Widget (2x2, 3x2, dan 4x2)** dengan pilihan tema widget tersendiri.
 
-## Cara Mengunduh & Memasang di Android melalui GitHub
+## Unduh Langsung APK untuk Android
 
-### 1. Push Proyek ke GitHub
-Dari menu **Settings / GitHub** di Google AI Studio, hubungkan atau push proyek ini ke repositori GitHub Anda.
+File APK siap pasang tersedia langsung di halaman utama repositori ini (sejajar dengan `README.md`):
 
-### 2. Bangun & Publikasikan APK Secara Otomatis
-Repositori ini sudah dilengkapi workflow GitHub Actions (`.github/workflows/build-apk.yml`) yang otomatis berjalan setiap kali Anda push ke branch `main`/`master` atau membuat tag versi (`v1.0.0`, dst.):
+- **[Unduh Pengingat-Shalat-Imsak.apk](./Pengingat-Shalat-Imsak.apk)** *(ketuk file lalu pilih **Download / View raw** di browser HP Android, kemudian buka untuk memasang — aktifkan izin "Install unknown apps" bila diminta).*
 
-- **Melalui Halaman Releases (Direkomendasikan untuk pengguna Android):**
-  1. Buka repositori Anda di GitHub.
-  2. Buat rilis baru via **Releases -> Draft a new release**, isi tag misalnya `v1.0.0`, atau jalankan workflow secara manual dari tab **Actions -> Build & Release Android APK -> Run workflow** dengan mengisi `release_tag` (misal `v1.0.0`).
-  3. Setelah workflow selesai (~2–3 menit), buka menu **Releases** di GitHub.
-  4. Di HP Android, ketuk file **`Pengingat-Shalat-Imsak.apk`** untuk mengunduh dan memasangnya (izinkan *"Install unknown apps"* jika diminta Android).
+### Tema Aplikasi Dinamis vs Tema Widget Mandiri
+- **Tema Aplikasi (Dinamis sesuai jam):** Latar masjid dan palet warna di dalam aplikasi otomatis berubah mengikuti waktu lokal (Fajar, Siang, Senja, Malam), atau dapat dipilih manual lewat ikon palet di aplikasi.
+- **3 Pilihan Widget (2x2, 3x2, 4x2):** Tersedia dalam ukuran **2x2** (Jadwal Mini), **3x2** (Berikutnya + Jadwal), dan **4x2** (Jadwal Lengkap). Penggantian tema pada widget berdiri sendiri (tidak mengubah tema aplikasi).
 
-- **Melalui Tab Actions (Artifact):**
-  1. Buka tab **Actions** pada repositori GitHub Anda.
-  2. Pilih run terbaru dari **Build & Release Android APK**.
-  3. Unduh artifact **`Pengingat-Shalat-Imsak-APK`**, ekstrak ZIP-nya, lalu instal file `.apk` di HP Android.
+## Otomatisasi Build & Release di GitHub
+
+1. **Rilis Otomatis (`latest` & tag `v*`):** Workflow `.github/workflows/build-apk.yml` otomatis berjalan setiap kali ada push ke `main`/`master` dan langsung membuat/memperbarui rilis **`latest`** di halaman **Releases** dengan file `Pengingat-Shalat-Imsak.apk`.
+2. **Melalui Tab Actions (Artifact):** Anda juga dapat mengunduh `Pengingat-Shalat-Imsak-APK` dari hasil run terbaru di tab **Actions**.
 
 ### 3. Opsional: Signing Release APK dengan Keystore Pribadi
 Secara bawaan, workflow otomatis menghasilkan APK yang sudah ditandatangani (`Pengingat-Shalat-Imsak.apk`) agar langsung bisa dipasang di perangkat Android tanpa konfigurasi tambahan.

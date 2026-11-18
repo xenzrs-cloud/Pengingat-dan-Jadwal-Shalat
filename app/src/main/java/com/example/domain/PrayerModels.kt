@@ -80,16 +80,16 @@ enum class QuickSoundOverride(val id: String, val label: String) {
   }
 }
 
-enum class WidgetThemeMode(val id: String, val label: String, val description: String) {
+enum class AppThemeMode(val id: String, val label: String, val description: String) {
+  DYNAMIC_MOSQUE(
+    id = "dynamic_mosque",
+    label = "Masjid Dinamis (Sesuai Jam)",
+    description = "Latar & palet warna aplikasi otomatis berubah sesuai jam (Fajar, Siang, Senja, Malam)",
+  ),
   DEFAULT(
     id = "default",
     label = "Tema Default",
-    description = "Tampilan bersih hijau zamrud mengikuti tema sistem",
-  ),
-  DYNAMIC_MOSQUE(
-    id = "dynamic_mosque",
-    label = "Masjid Dinamis (Siang & Malam)",
-    description = "Latar masjid berwarna yang otomatis berubah sesuai waktu (Fajar, Siang, Senja, Malam)",
+    description = "Tampilan bersih hijau zamrud mengikuti mode terang/gelap sistem",
   ),
   MOSQUE_DAY(
     id = "mosque_day",
@@ -108,8 +108,36 @@ enum class WidgetThemeMode(val id: String, val label: String, val description: S
   );
 
   companion object {
-    fun fromId(id: String?): WidgetThemeMode =
+    fun fromId(id: String?): AppThemeMode =
       entries.firstOrNull { it.id == id } ?: DYNAMIC_MOSQUE
+  }
+}
+
+enum class WidgetThemeMode(val id: String, val label: String, val description: String) {
+  DEFAULT(
+    id = "default",
+    label = "Tema Default",
+    description = "Tampilan bersih hijau zamrud mengikuti tema sistem",
+  ),
+  MOSQUE_DAY(
+    id = "mosque_day",
+    label = "Masjid Siang Cerah",
+    description = "Latar masjid langit biru cerah dengan aksen zamrud",
+  ),
+  MOSQUE_SUNSET(
+    id = "mosque_sunset",
+    label = "Masjid Senja Hangat",
+    description = "Latar gradasi senja jingga-ungu dengan siluet masjid",
+  ),
+  MOSQUE_NIGHT(
+    id = "mosque_night",
+    label = "Masjid Malam Berbintang",
+    description = "Latar langit malam berbintang dan bulan sabit",
+  );
+
+  companion object {
+    fun fromId(id: String?): WidgetThemeMode =
+      entries.firstOrNull { it.id == id } ?: MOSQUE_NIGHT
   }
 }
 
@@ -207,7 +235,8 @@ data class PrayerPreferences(
   val checkedDateKey: String = "",
   val checkedPrayers: Set<PrayerType> = emptySet(),
   val channelVersion: Int = 1,
-  val widgetThemeMode: WidgetThemeMode = WidgetThemeMode.DYNAMIC_MOSQUE,
+  val appThemeMode: AppThemeMode = AppThemeMode.DYNAMIC_MOSQUE,
+  val widgetThemeMode: WidgetThemeMode = WidgetThemeMode.MOSQUE_NIGHT,
 ) {
   fun settingFor(category: SoundCategory): SoundCategorySetting =
     when (category) {

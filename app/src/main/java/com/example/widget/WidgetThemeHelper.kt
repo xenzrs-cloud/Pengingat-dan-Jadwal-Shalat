@@ -1,6 +1,8 @@
 package com.example.widget
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
@@ -21,6 +23,7 @@ data class WidgetVisualStyle(
   @DrawableRes val slotDefaultBgRes: Int,
   @DrawableRes val slotActiveBgRes: Int,
   @DrawableRes val refreshIconRes: Int,
+  @DrawableRes val paletteIconRes: Int,
   val primaryTextColor: Int,
   val secondaryTextColor: Int,
   val accentTextColor: Int,
@@ -28,6 +31,27 @@ data class WidgetVisualStyle(
 )
 
 object WidgetThemeHelper {
+
+  fun nextMode(current: WidgetThemeMode): WidgetThemeMode {
+    val all = WidgetThemeMode.entries
+    val nextIdx = (all.indexOf(current) + 1) % all.size
+    return all[nextIdx]
+  }
+
+  fun renderBackgroundBitmap(
+    context: Context,
+    @DrawableRes resId: Int,
+    sizePx: Int = 256,
+  ): Bitmap? =
+    runCatching {
+        val drawable = ContextCompat.getDrawable(context, resId) ?: return@runCatching null
+        val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        bitmap
+      }
+      .getOrNull()
 
   fun resolveDynamicPhase(nowMillis: Long, timeZoneId: String): DynamicDayPhase {
     val cal =
@@ -46,8 +70,6 @@ object WidgetThemeHelper {
   fun resolveStyle(
     context: Context,
     mode: WidgetThemeMode,
-    nowMillis: Long,
-    timeZoneId: String,
   ): WidgetVisualStyle {
     if (mode == WidgetThemeMode.DEFAULT) {
       return WidgetVisualStyle(
@@ -55,6 +77,7 @@ object WidgetThemeHelper {
         slotDefaultBgRes = R.drawable.widget_slot_default_bg,
         slotActiveBgRes = R.drawable.widget_slot_active_bg,
         refreshIconRes = R.drawable.ic_widget_refresh,
+        paletteIconRes = R.drawable.ic_widget_palette,
         primaryTextColor = ContextCompat.getColor(context, R.color.widget_text_primary),
         secondaryTextColor = ContextCompat.getColor(context, R.color.widget_text_secondary),
         accentTextColor = ContextCompat.getColor(context, R.color.widget_primary),
@@ -64,7 +87,6 @@ object WidgetThemeHelper {
 
     val phase =
       when (mode) {
-        WidgetThemeMode.DYNAMIC_MOSQUE -> resolveDynamicPhase(nowMillis, timeZoneId)
         WidgetThemeMode.MOSQUE_DAY -> DynamicDayPhase.DAY
         WidgetThemeMode.MOSQUE_SUNSET -> DynamicDayPhase.SUNSET
         WidgetThemeMode.MOSQUE_NIGHT -> DynamicDayPhase.NIGHT
@@ -78,6 +100,7 @@ object WidgetThemeHelper {
           slotDefaultBgRes = R.drawable.widget_slot_glass_light,
           slotActiveBgRes = R.drawable.widget_slot_glass_light_active,
           refreshIconRes = R.drawable.ic_widget_refresh,
+          paletteIconRes = R.drawable.ic_widget_palette,
           primaryTextColor = Color.parseColor("#0F172A"),
           secondaryTextColor = Color.parseColor("#334155"),
           accentTextColor = Color.parseColor("#0F766E"),
@@ -89,6 +112,7 @@ object WidgetThemeHelper {
           slotDefaultBgRes = R.drawable.widget_slot_glass_dark,
           slotActiveBgRes = R.drawable.widget_slot_glass_dark_active,
           refreshIconRes = R.drawable.ic_widget_refresh_white,
+          paletteIconRes = R.drawable.ic_widget_palette_white,
           primaryTextColor = Color.WHITE,
           secondaryTextColor = Color.parseColor("#E2E8F0"),
           accentTextColor = Color.parseColor("#FDE047"),
@@ -100,6 +124,7 @@ object WidgetThemeHelper {
           slotDefaultBgRes = R.drawable.widget_slot_glass_dark,
           slotActiveBgRes = R.drawable.widget_slot_glass_dark_active,
           refreshIconRes = R.drawable.ic_widget_refresh_white,
+          paletteIconRes = R.drawable.ic_widget_palette_white,
           primaryTextColor = Color.WHITE,
           secondaryTextColor = Color.parseColor("#FEF3C7"),
           accentTextColor = Color.parseColor("#FDE047"),
@@ -111,6 +136,7 @@ object WidgetThemeHelper {
           slotDefaultBgRes = R.drawable.widget_slot_glass_dark,
           slotActiveBgRes = R.drawable.widget_slot_glass_dark_active,
           refreshIconRes = R.drawable.ic_widget_refresh_white,
+          paletteIconRes = R.drawable.ic_widget_palette_white,
           primaryTextColor = Color.WHITE,
           secondaryTextColor = Color.parseColor("#CBD5E1"),
           accentTextColor = Color.parseColor("#FDE047"),

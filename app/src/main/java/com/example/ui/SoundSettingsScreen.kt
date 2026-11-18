@@ -3,8 +3,15 @@ package com.example.ui
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,12 +28,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Stop
@@ -51,6 +60,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,7 +69,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +85,7 @@ import com.example.R
 import com.example.domain.SoundCategory
 import com.example.domain.SoundCategorySetting
 import com.example.domain.SoundMode
+import com.example.widget.WidgetThemeHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +100,18 @@ fun SoundSettingsScreen(
   onSnackbarShown: () -> Unit,
 ) {
   val snackbarHostState = remember { SnackbarHostState() }
+  val haptics = LocalHapticFeedback.current
   var pendingPickerCategory by remember { mutableStateOf<SoundCategory?>(null) }
+
+  val currentPhase =
+    WidgetThemeHelper.resolveDynamicPhase(uiState.nowMillis, uiState.preferences.timeZoneId)
+  val activeMosqueDrawable =
+    resolveAppMosqueDrawable(uiState.preferences.appThemeMode, currentPhase)
+
+  val hasUnsavedChanges =
+    uiState.draftPrayerEntry != uiState.preferences.prayerEntrySound ||
+      uiState.draftImsakEntry != uiState.preferences.imsakEntrySound ||
+      uiState.draftExpiryReminder != uiState.preferences.expiryReminderSound
 
   val audioPickerLauncher =
     rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) { uri ->
@@ -103,14 +131,25 @@ fun SoundSettingsScreen(
 
   Scaffold(
     contentWindowInsets = WindowInsets.safeDrawing,
+    containerColor = MaterialTheme.colorScheme.background,
     snackbarHost = { SnackbarHost(snackbarHostState) },
     topBar = {
       TopAppBar(
         title = {
-          Text(
-            text = stringResource(R.string.nav_sound_settings),
-            style = MaterialTheme.typography.titleLarge,
-          )
+          Column {
+            Text(
+              text = stringResource(R.string.nav_sound_settings),
+              style = MaterialTheme.typography.titleLarge,
+            )
+            if (hasUnsavedChanges) {
+              Text(
+                text = "Perubahan belum diterapkan",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+                fontWeight = FontWeight.SemiBold,
+              )
+            }
+          }
         },
         navigationIcon = {
           IconButton(
@@ -118,7 +157,7 @@ fun SoundSettingsScreen(
               onStopSound()
               onNavigateBack()
             },
-            modifier = Modifier.testTag("back_from_sound_settings_button"),
+            modifier = Modifier.minimumInteractiveComponentSize().testTag("back_from_sound_settings_button"),
           ) {
             Icon(
               imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -128,7 +167,7 @@ fun SoundSettingsScreen(
         },
         colors =
           TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = Color.Transparent,
             titleContentColor = MaterialTheme.colorScheme.onBackground,
           ),
       )
@@ -145,9 +184,20 @@ fun SoundSettingsScreen(
               .navigationBarsPadding()
               .padding(horizontal = 16.dp, vertical = 12.dp),
           horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+          AnimatedVisibility(visible = hasUnsavedChanges) {
+            Text(
+              text = "Tekan Simpan untuk memperbarui Channel Notifikasi & jadwal alarm.",
+              style = MaterialTheme.typography.labelMedium,
+              color = MaterialTheme.colorScheme.secondary,
+            )
+          }
           Button(
-            onClick = onSaveAndApply,
+            onClick = {
+              haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+              onSaveAndApply()
+            },
             modifier =
               Modifier.widthIn(max = 600.dp)
                 .fillMaxWidth()
@@ -167,7 +217,9 @@ fun SoundSettingsScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-              text = stringResource(R.string.action_save_apply),
+              text =
+                if (hasUnsavedChanges) "Simpan & Terapkan Perubahan"
+                else stringResource(R.string.action_save_apply),
               style = MaterialTheme.typography.labelLarge,
             )
           }
@@ -175,100 +227,161 @@ fun SoundSettingsScreen(
       }
     },
   ) { innerPadding ->
-    LazyColumn(
-      modifier = Modifier.fillMaxSize().padding(innerPadding),
-      contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp),
-      horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-      item {
-        ChannelVersionNoticeCard(
-          channelVersion = uiState.preferences.channelVersion,
-          modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
+    Box(modifier = Modifier.fillMaxSize()) {
+      if (activeMosqueDrawable != null) {
+        Image(
+          painter = painterResource(id = activeMosqueDrawable),
+          contentDescription = null,
+          contentScale = ContentScale.Crop,
+          alpha = 0.12f,
+          modifier = Modifier.fillMaxSize(),
         )
       }
 
-      item {
-        SoundCategoryCard(
-          category = SoundCategory.PRAYER_ENTRY,
-          setting = uiState.draftPrayerEntry,
-          isPlaying = uiState.playingPreviewCategory == SoundCategory.PRAYER_ENTRY,
-          onSelectMode = { mode -> onSelectMode(SoundCategory.PRAYER_ENTRY, mode) },
-          onLaunchFilePicker = {
-            pendingPickerCategory = SoundCategory.PRAYER_ENTRY
-            audioPickerLauncher.launch(arrayOf("audio/*"))
-          },
-          onTestSound = { onTestSound(SoundCategory.PRAYER_ENTRY) },
-          onStopSound = onStopSound,
-          modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
-        )
-      }
+      LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(innerPadding),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+      ) {
+        item {
+          ChannelVersionNoticeCard(
+            channelVersion = uiState.preferences.channelVersion,
+            hasUnsavedChanges = hasUnsavedChanges,
+            modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
+          )
+        }
 
-      item {
-        SoundCategoryCard(
-          category = SoundCategory.IMSAK_ENTRY,
-          setting = uiState.draftImsakEntry,
-          isPlaying = uiState.playingPreviewCategory == SoundCategory.IMSAK_ENTRY,
-          onSelectMode = { mode -> onSelectMode(SoundCategory.IMSAK_ENTRY, mode) },
-          onLaunchFilePicker = {
-            pendingPickerCategory = SoundCategory.IMSAK_ENTRY
-            audioPickerLauncher.launch(arrayOf("audio/*"))
-          },
-          onTestSound = { onTestSound(SoundCategory.IMSAK_ENTRY) },
-          onStopSound = onStopSound,
-          modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
-        )
-      }
+        item {
+          SoundCategoryCard(
+            category = SoundCategory.PRAYER_ENTRY,
+            setting = uiState.draftPrayerEntry,
+            isPlaying = uiState.playingPreviewCategory == SoundCategory.PRAYER_ENTRY,
+            onSelectMode = { mode ->
+              haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+              onSelectMode(SoundCategory.PRAYER_ENTRY, mode)
+            },
+            onLaunchFilePicker = {
+              pendingPickerCategory = SoundCategory.PRAYER_ENTRY
+              audioPickerLauncher.launch(arrayOf("audio/*"))
+            },
+            onTestSound = {
+              haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+              onTestSound(SoundCategory.PRAYER_ENTRY)
+            },
+            onStopSound = onStopSound,
+            modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
+          )
+        }
 
-      item {
-        SoundCategoryCard(
-          category = SoundCategory.EXPIRY_REMINDER,
-          setting = uiState.draftExpiryReminder,
-          isPlaying = uiState.playingPreviewCategory == SoundCategory.EXPIRY_REMINDER,
-          onSelectMode = { mode -> onSelectMode(SoundCategory.EXPIRY_REMINDER, mode) },
-          onLaunchFilePicker = {
-            pendingPickerCategory = SoundCategory.EXPIRY_REMINDER
-            audioPickerLauncher.launch(arrayOf("audio/*"))
-          },
-          onTestSound = { onTestSound(SoundCategory.EXPIRY_REMINDER) },
-          onStopSound = onStopSound,
-          modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
-        )
+        item {
+          SoundCategoryCard(
+            category = SoundCategory.IMSAK_ENTRY,
+            setting = uiState.draftImsakEntry,
+            isPlaying = uiState.playingPreviewCategory == SoundCategory.IMSAK_ENTRY,
+            onSelectMode = { mode ->
+              haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+              onSelectMode(SoundCategory.IMSAK_ENTRY, mode)
+            },
+            onLaunchFilePicker = {
+              pendingPickerCategory = SoundCategory.IMSAK_ENTRY
+              audioPickerLauncher.launch(arrayOf("audio/*"))
+            },
+            onTestSound = {
+              haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+              onTestSound(SoundCategory.IMSAK_ENTRY)
+            },
+            onStopSound = onStopSound,
+            modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
+          )
+        }
+
+        item {
+          SoundCategoryCard(
+            category = SoundCategory.EXPIRY_REMINDER,
+            setting = uiState.draftExpiryReminder,
+            isPlaying = uiState.playingPreviewCategory == SoundCategory.EXPIRY_REMINDER,
+            onSelectMode = { mode ->
+              haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+              onSelectMode(SoundCategory.EXPIRY_REMINDER, mode)
+            },
+            onLaunchFilePicker = {
+              pendingPickerCategory = SoundCategory.EXPIRY_REMINDER
+              audioPickerLauncher.launch(arrayOf("audio/*"))
+            },
+            onTestSound = {
+              haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+              onTestSound(SoundCategory.EXPIRY_REMINDER)
+            },
+            onStopSound = onStopSound,
+            modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
+          )
+        }
       }
     }
   }
 }
 
 @Composable
-private fun ChannelVersionNoticeCard(channelVersion: Int, modifier: Modifier = Modifier) {
+private fun ChannelVersionNoticeCard(
+  channelVersion: Int,
+  hasUnsavedChanges: Boolean,
+  modifier: Modifier = Modifier,
+) {
   Surface(
     modifier = modifier,
     shape = RoundedCornerShape(16.dp),
-    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)),
   ) {
     Row(
       modifier = Modifier.padding(14.dp),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-      Icon(
-        imageVector = Icons.Rounded.NotificationsActive,
-        contentDescription = null,
-        tint = MaterialTheme.colorScheme.primary,
-      )
-      Column(modifier = Modifier.weight(1f)) {
-        Text(
-          text = "Channel Notifikasi Aktif: v$channelVersion",
-          style = MaterialTheme.typography.titleSmall,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.onPrimaryContainer,
-        )
+      Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+        modifier = Modifier.size(40.dp),
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Rounded.NotificationsActive,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+          )
+        }
+      }
+      Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Text(
+            text = "Channel Notifikasi Aktif: v$channelVersion",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+          )
+          if (hasUnsavedChanges) {
+            Surface(
+              shape = RoundedCornerShape(6.dp),
+              color = MaterialTheme.colorScheme.secondary,
+            ) {
+              Text(
+                text = "Draft",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondary,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+              )
+            }
+          }
+        }
         Text(
           text =
-            "Menekan Simpan akan menaikkan versi Notification Channel Android, menghapus versi lama, dan menjadwalkan ulang seluruh alarm (termasuk Imsak).",
+            "Menekan Simpan akan memperbarui versi Notification Channel Android, menghapus versi lama, dan menjadwalkan ulang seluruh alarm (termasuk Imsak).",
           style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+          color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.88f),
         )
       }
     }
@@ -294,17 +407,19 @@ private fun SoundCategoryCard(
     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
   ) {
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-      Text(
-        text = category.title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
-        fontWeight = FontWeight.Bold,
-      )
-      Text(
-        text = category.subtitle,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
+      Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+          text = category.title,
+          style = MaterialTheme.typography.titleMedium,
+          color = MaterialTheme.colorScheme.primary,
+          fontWeight = FontWeight.Bold,
+        )
+        Text(
+          text = category.subtitle,
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
 
       Spacer(modifier = Modifier.height(2.dp))
 
@@ -313,6 +428,7 @@ private fun SoundCategoryCard(
         Surface(
           modifier =
             Modifier.fillMaxWidth()
+              .clip(RoundedCornerShape(12.dp))
               .selectable(
                 selected = selected,
                 onClick = { onSelectMode(mode) },
@@ -321,10 +437,10 @@ private fun SoundCategoryCard(
               .testTag("sound_mode_${category.id}_${mode.id}"),
           shape = RoundedCornerShape(12.dp),
           color =
-            if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+            if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.48f)
             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
           border =
-            if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+            if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
             else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
           Row(
@@ -364,11 +480,16 @@ private fun SoundCategoryCard(
         }
       }
 
-      if (setting.mode == SoundMode.CUSTOM_FILE) {
+      AnimatedVisibility(
+        visible = setting.mode == SoundMode.CUSTOM_FILE,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut(),
+      ) {
         Surface(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(12.dp),
-          color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+          color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)),
         ) {
           Row(
             modifier = Modifier.padding(12.dp),
@@ -392,7 +513,7 @@ private fun SoundCategoryCard(
             }
             FilledTonalButton(
               onClick = onLaunchFilePicker,
-              modifier = Modifier.testTag("pick_audio_button_${category.id}"),
+              modifier = Modifier.minimumInteractiveComponentSize().testTag("pick_audio_button_${category.id}"),
             ) {
               Icon(
                 imageVector = Icons.Rounded.FolderOpen,
@@ -407,17 +528,21 @@ private fun SoundCategoryCard(
       }
 
       // Preview & Stop Audio Controls
-      if (setting.mode == SoundMode.DEFAULT_ADZAN || setting.mode == SoundMode.CUSTOM_FILE) {
+      AnimatedVisibility(
+        visible = setting.mode == SoundMode.DEFAULT_ADZAN || setting.mode == SoundMode.CUSTOM_FILE,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut(),
+      ) {
         Row(
           modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
           horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
           FilledTonalButton(
             onClick = onTestSound,
-            modifier = Modifier.weight(1f).testTag("test_sound_button_${category.id}"),
+            modifier = Modifier.weight(1f).minimumInteractiveComponentSize().testTag("test_sound_button_${category.id}"),
           ) {
             Icon(
-              imageVector = Icons.Rounded.PlayArrow,
+              imageVector = if (isPlaying) Icons.Rounded.GraphicEq else Icons.Rounded.PlayArrow,
               contentDescription = stringResource(R.string.cd_play_sound),
               modifier = Modifier.size(18.dp),
             )
@@ -430,7 +555,7 @@ private fun SoundCategoryCard(
           OutlinedButton(
             onClick = onStopSound,
             enabled = isPlaying,
-            modifier = Modifier.weight(1f).testTag("stop_sound_button_${category.id}"),
+            modifier = Modifier.weight(1f).minimumInteractiveComponentSize().testTag("stop_sound_button_${category.id}"),
           ) {
             Icon(
               imageVector = Icons.Rounded.Stop,

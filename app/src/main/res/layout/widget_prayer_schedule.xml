@@ -43,12 +43,23 @@
                 android:textStyle="bold" />
 
             <ImageButton
+                android:id="@+id/widget_theme_btn"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="2dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/cd_widget_theme"
+                android:padding="3dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_widget_palette_white" />
+
+            <ImageButton
                 android:id="@+id/widget_refresh_btn"
-                android:layout_width="26dp"
-                android:layout_height="26dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:background="@android:color/transparent"
                 android:contentDescription="@string/cd_widget_refresh"
-                android:padding="4dp"
+                android:padding="3dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_widget_refresh_white" />
         </LinearLayout>

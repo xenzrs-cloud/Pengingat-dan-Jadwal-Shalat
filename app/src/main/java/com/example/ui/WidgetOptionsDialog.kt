@@ -21,10 +21,10 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddToHomeScreen
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Mosque
-import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.ViewAgenda
+import androidx.compose.material.icons.rounded.ViewWeek
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,6 +34,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,7 +44,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -58,11 +62,11 @@ import com.example.domain.PrayerType
 import com.example.domain.WidgetThemeMode
 import com.example.ui.theme.JetBrainsMonoFamily
 import com.example.widget.DynamicDayPhase
-import com.example.widget.WidgetThemeHelper
 
 enum class WidgetStyleOption {
-  GRID_2X2,
-  COMPACT_2X2,
+  SIZE_2X2,
+  SIZE_3X2,
+  SIZE_4X2,
 }
 
 @Composable
@@ -72,8 +76,9 @@ fun WidgetOptionsDialog(
   onPinWidgetStyle: (WidgetStyleOption) -> Unit,
   onDismiss: () -> Unit,
 ) {
+  val haptics = LocalHapticFeedback.current
   val selectedTheme = uiState.preferences.widgetThemeMode
-  var previewStyle by remember { mutableStateOf(WidgetStyleOption.GRID_2X2) }
+  var previewStyle by remember { mutableStateOf(WidgetStyleOption.SIZE_2X2) }
   val schedule = uiState.todaySchedule
 
   AlertDialog(
@@ -88,7 +93,14 @@ fun WidgetOptionsDialog(
           contentDescription = null,
           tint = MaterialTheme.colorScheme.primary,
         )
-        Text("Widget 2x2 & Tema")
+        Column {
+          Text("Widget Layar Utama")
+          Text(
+            text = "Pilih ukuran 2x2, 3x2, atau 4x2",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
       }
     },
     text = {
@@ -97,7 +109,7 @@ fun WidgetOptionsDialog(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(vertical = 4.dp),
       ) {
-        // Live 2x2 Mini Preview
+        // Live Preview across 2x2, 3x2, 4x2
         if (schedule != null) {
           item {
             Column(
@@ -107,18 +119,33 @@ fun WidgetOptionsDialog(
             ) {
               Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
               ) {
                 PreviewStyleTab(
-                  label = "Jadwal Mini 2x2",
-                  selected = previewStyle == WidgetStyleOption.GRID_2X2,
-                  onClick = { previewStyle = WidgetStyleOption.GRID_2X2 },
+                  label = "2x2",
+                  selected = previewStyle == WidgetStyleOption.SIZE_2X2,
+                  onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    previewStyle = WidgetStyleOption.SIZE_2X2
+                  },
                   modifier = Modifier.weight(1f),
                 )
                 PreviewStyleTab(
-                  label = "Berikutnya 2x2",
-                  selected = previewStyle == WidgetStyleOption.COMPACT_2X2,
-                  onClick = { previewStyle = WidgetStyleOption.COMPACT_2X2 },
+                  label = "3x2",
+                  selected = previewStyle == WidgetStyleOption.SIZE_3X2,
+                  onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    previewStyle = WidgetStyleOption.SIZE_3X2
+                  },
+                  modifier = Modifier.weight(1f),
+                )
+                PreviewStyleTab(
+                  label = "4x2",
+                  selected = previewStyle == WidgetStyleOption.SIZE_4X2,
+                  onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    previewStyle = WidgetStyleOption.SIZE_4X2
+                  },
                   modifier = Modifier.weight(1f),
                 )
               }
@@ -133,14 +160,21 @@ fun WidgetOptionsDialog(
           }
         }
 
-        // Pilihan Tema Background Widget
+        // Pilihan Tema Khusus Widget (tidak memengaruhi tema aplikasi)
         item {
-          Text(
-            text = "Pilih Tema Background Widget",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-          )
+          Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+              text = "Tema Khusus Widget",
+              style = MaterialTheme.typography.titleSmall,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+              text = "Pilihan warna widget terpisah dan tidak memengaruhi tema aplikasi.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
         }
 
         item {
@@ -150,9 +184,13 @@ fun WidgetOptionsDialog(
               Surface(
                 modifier =
                   Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
                     .selectable(
                       selected = isSelected,
-                      onClick = { onSelectThemeMode(mode) },
+                      onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelectThemeMode(mode)
+                      },
                       role = Role.RadioButton,
                     )
                     .testTag("widget_theme_${mode.id}"),
@@ -188,10 +226,10 @@ fun WidgetOptionsDialog(
           }
         }
 
-        // Pilihan Bentuk Widget 2x2 untuk Dipasang
+        // 3 Pilihan Ukuran Widget untuk Dipasang
         item {
           Text(
-            text = "Pasang Widget (Ukuran 2x2)",
+            text = "Pasang Widget (3 Pilihan Ukuran)",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -202,18 +240,25 @@ fun WidgetOptionsDialog(
         item {
           Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             WidgetOptionPinCard(
-              title = "Opsi 1: Jadwal Mini (2x2)",
-              subtitle = "6 waktu lengkap (Imsak, Subuh, Dzuhur, Ashar, Maghrib, Isya) dalam kotak 2x2.",
+              title = "Widget 2x2 — Jadwal Mini",
+              subtitle = "6 waktu harian (Imsak hingga Isya) ringkas hemat ruang.",
               icon = Icons.Rounded.GridView,
-              onPin = { onPinWidgetStyle(WidgetStyleOption.GRID_2X2) },
-              testTag = "pin_widget_grid_button",
+              onPin = { onPinWidgetStyle(WidgetStyleOption.SIZE_2X2) },
+              testTag = "pin_widget_2x2_button",
             )
             WidgetOptionPinCard(
-              title = "Opsi 2: Shalat Berikutnya (2x2)",
-              subtitle = "Fokus waktu shalat selanjutnya dengan angka besar + status shalat aktif.",
-              icon = Icons.Rounded.Schedule,
-              onPin = { onPinWidgetStyle(WidgetStyleOption.COMPACT_2X2) },
-              testTag = "pin_widget_compact_button",
+              title = "Widget 3x2 — Berikutnya + Jadwal",
+              subtitle = "Panel kiri fokus waktu berikutnya, panel kanan 6 jadwal harian.",
+              icon = Icons.Rounded.ViewAgenda,
+              onPin = { onPinWidgetStyle(WidgetStyleOption.SIZE_3X2) },
+              testTag = "pin_widget_3x2_button",
+            )
+            WidgetOptionPinCard(
+              title = "Widget 4x2 — Jadwal Lengkap",
+              subtitle = "Banner lebar dengan status shalat aktif dan 6 waktu lega.",
+              icon = Icons.Rounded.ViewWeek,
+              onPin = { onPinWidgetStyle(WidgetStyleOption.SIZE_4X2) },
+              testTag = "pin_widget_4x2_button",
             )
           }
         }
@@ -233,7 +278,7 @@ private fun PreviewStyleTab(
   modifier: Modifier = Modifier,
 ) {
   Surface(
-    modifier = modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick),
+    modifier = modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick),
     shape = RoundedCornerShape(10.dp),
     color =
       if (selected) MaterialTheme.colorScheme.primary
@@ -246,7 +291,7 @@ private fun PreviewStyleTab(
       Text(
         text = label,
         style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         color =
           if (selected) MaterialTheme.colorScheme.onPrimary
           else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -266,8 +311,6 @@ private fun WidgetLivePreviewCard(
 ) {
   val phase =
     when (themeMode) {
-      WidgetThemeMode.DYNAMIC_MOSQUE ->
-        WidgetThemeHelper.resolveDynamicPhase(nowMillis, schedule.timeZoneId)
       WidgetThemeMode.MOSQUE_DAY -> DynamicDayPhase.DAY
       WidgetThemeMode.MOSQUE_SUNSET -> DynamicDayPhase.SUNSET
       WidgetThemeMode.MOSQUE_NIGHT -> DynamicDayPhase.NIGHT
@@ -276,10 +319,10 @@ private fun WidgetLivePreviewCard(
 
   val bgRes =
     when (phase) {
-      DynamicDayPhase.DAWN -> R.drawable.bg_widget_mosque_dawn
       DynamicDayPhase.DAY -> R.drawable.bg_widget_mosque_day
       DynamicDayPhase.SUNSET -> R.drawable.bg_widget_mosque_sunset
       DynamicDayPhase.NIGHT -> R.drawable.bg_widget_mosque_night
+      DynamicDayPhase.DAWN -> R.drawable.bg_widget_mosque_dawn
       null -> null
     }
 
@@ -309,9 +352,36 @@ private fun WidgetLivePreviewCard(
       else -> Color(0xFF0F172A).copy(alpha = 0.42f)
     }
 
+  val previewWidth =
+    when (styleOption) {
+      WidgetStyleOption.SIZE_2X2 -> 164.dp
+      WidgetStyleOption.SIZE_3X2 -> 236.dp
+      WidgetStyleOption.SIZE_4X2 -> 280.dp
+    }
+  val previewHeight =
+    when (styleOption) {
+      WidgetStyleOption.SIZE_2X2 -> 164.dp
+      WidgetStyleOption.SIZE_3X2 -> 152.dp
+      WidgetStyleOption.SIZE_4X2 -> 140.dp
+    }
+
+  val ordered =
+    listOf(
+      PrayerType.IMSAK,
+      PrayerType.SUBUH,
+      PrayerType.DZUHUR,
+      PrayerType.ASHAR,
+      PrayerType.MAGHRIB,
+      PrayerType.ISYA,
+    )
+  val nextSlot =
+    ordered.map { schedule.slotOf(it) }.firstOrNull { it.startEpochMillis > nowMillis }
+      ?: schedule.slotOf(PrayerType.IMSAK)
+  val nextClock = KemenagPrayerCalculator.formatClock(nextSlot.startEpochMillis, schedule.timeZoneId)
+
   Surface(
-    modifier = Modifier.size(168.dp).clip(RoundedCornerShape(20.dp)),
-    shape = RoundedCornerShape(20.dp),
+    modifier = Modifier.width(previewWidth).height(previewHeight).clip(RoundedCornerShape(18.dp)),
+    shape = RoundedCornerShape(18.dp),
     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     shadowElevation = 2.dp,
   ) {
@@ -329,113 +399,149 @@ private fun WidgetLivePreviewCard(
         modifier = Modifier.fillMaxSize().padding(10.dp),
         verticalArrangement = Arrangement.SpaceBetween,
       ) {
-        Text(
-          text = schedule.locationName,
-          fontSize = 11.sp,
-          fontWeight = FontWeight.Bold,
-          color = primaryText,
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
-        )
-
-        if (styleOption == WidgetStyleOption.GRID_2X2) {
-          val pairs =
-            listOf(
-              PrayerType.IMSAK to PrayerType.SUBUH,
-              PrayerType.DZUHUR to PrayerType.ASHAR,
-              PrayerType.MAGHRIB to PrayerType.ISYA,
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(
+            text = schedule.locationName,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = primaryText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+          )
+          if (styleOption == WidgetStyleOption.SIZE_4X2) {
+            Text(
+              text = "${nextSlot.type.displayName} $nextClock",
+              fontSize = 10.sp,
+              fontWeight = FontWeight.Bold,
+              color = accentText,
             )
-          Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            pairs.forEach { (left, right) ->
-              Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-              ) {
-                listOf(left, right).forEach { type ->
-                  val clock =
-                    KemenagPrayerCalculator.formatClock(
-                      schedule.slotOf(type).startEpochMillis,
-                      schedule.timeZoneId,
+          }
+        }
+
+        when (styleOption) {
+          WidgetStyleOption.SIZE_2X2 -> {
+            val pairs =
+              listOf(
+                PrayerType.IMSAK to PrayerType.SUBUH,
+                PrayerType.DZUHUR to PrayerType.ASHAR,
+                PrayerType.MAGHRIB to PrayerType.ISYA,
+              )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+              pairs.forEach { (left, right) ->
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                  listOf(left, right).forEach { type ->
+                    PreviewSlotPill(
+                      label = type.displayName,
+                      clock =
+                        KemenagPrayerCalculator.formatClock(
+                          schedule.slotOf(type).startEpochMillis,
+                          schedule.timeZoneId,
+                        ),
+                      slotBg = slotBg,
+                      labelColor = secondaryText,
+                      timeColor = primaryText,
+                      modifier = Modifier.weight(1f),
                     )
-                  Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    color = slotBg,
-                  ) {
-                    Column(
-                      modifier = Modifier.padding(vertical = 3.dp, horizontal = 4.dp),
-                      horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                      Text(
-                        text = type.displayName,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = secondaryText,
-                      )
-                      Text(
-                        text = clock,
-                        fontSize = 11.sp,
-                        fontFamily = JetBrainsMonoFamily,
-                        fontWeight = FontWeight.Bold,
-                        color = primaryText,
-                      )
-                    }
                   }
                 }
               }
             }
           }
-        } else {
-          val nextSlot =
-            listOf(
-                PrayerType.IMSAK,
-                PrayerType.SUBUH,
-                PrayerType.DZUHUR,
-                PrayerType.ASHAR,
-                PrayerType.MAGHRIB,
-                PrayerType.ISYA,
-              )
-              .map { schedule.slotOf(it) }
-              .firstOrNull { it.startEpochMillis > nowMillis } ?: schedule.slotOf(PrayerType.IMSAK)
-          val clock =
-            KemenagPrayerCalculator.formatClock(nextSlot.startEpochMillis, schedule.timeZoneId)
-
-          Column {
-            Text(text = "Waktu Berikutnya", fontSize = 9.sp, color = secondaryText)
-            Text(
-              text = nextSlot.type.displayName,
-              fontSize = 15.sp,
-              fontWeight = FontWeight.Bold,
-              color = primaryText,
-            )
-            Text(
-              text = clock,
-              fontSize = 24.sp,
-              fontFamily = JetBrainsMonoFamily,
-              fontWeight = FontWeight.Bold,
-              color = accentText,
-            )
-          }
-
-          Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
-            color = slotBg,
-          ) {
-            Text(
-              text =
-                "Subuh ${
-                  KemenagPrayerCalculator.formatClock(
-                    schedule.slotOf(PrayerType.SUBUH).startEpochMillis,
-                    schedule.timeZoneId,
+          WidgetStyleOption.SIZE_3X2 -> {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Surface(
+                modifier = Modifier.weight(0.45f),
+                shape = RoundedCornerShape(10.dp),
+                color = slotBg,
+              ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                  Text(text = "Berikutnya", fontSize = 8.sp, color = secondaryText)
+                  Text(
+                    text = nextSlot.type.displayName,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = primaryText,
+                    maxLines = 1,
                   )
-                }",
-              fontSize = 9.sp,
-              fontWeight = FontWeight.SemiBold,
-              color = primaryText,
-              modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-              maxLines = 1,
-            )
+                  Text(
+                    text = nextClock,
+                    fontSize = 16.sp,
+                    fontFamily = JetBrainsMonoFamily,
+                    fontWeight = FontWeight.Bold,
+                    color = accentText,
+                  )
+                }
+              }
+              Column(
+                modifier = Modifier.weight(0.55f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+              ) {
+                listOf(
+                    PrayerType.IMSAK to PrayerType.SUBUH,
+                    PrayerType.DZUHUR to PrayerType.ASHAR,
+                    PrayerType.MAGHRIB to PrayerType.ISYA,
+                  )
+                  .forEach { (l, r) ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                      listOf(l, r).forEach { type ->
+                        PreviewSlotPill(
+                          label = type.displayName,
+                          clock =
+                            KemenagPrayerCalculator.formatClock(
+                              schedule.slotOf(type).startEpochMillis,
+                              schedule.timeZoneId,
+                            ),
+                          slotBg = slotBg,
+                          labelColor = secondaryText,
+                          timeColor = primaryText,
+                          modifier = Modifier.weight(1f),
+                        )
+                      }
+                    }
+                  }
+              }
+            }
+          }
+          WidgetStyleOption.SIZE_4X2 -> {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+              listOf(
+                  listOf(PrayerType.IMSAK, PrayerType.SUBUH, PrayerType.DZUHUR),
+                  listOf(PrayerType.ASHAR, PrayerType.MAGHRIB, PrayerType.ISYA),
+                )
+                .forEach { rowTypes ->
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                  ) {
+                    rowTypes.forEach { type ->
+                      PreviewSlotPill(
+                        label = type.displayName,
+                        clock =
+                          KemenagPrayerCalculator.formatClock(
+                            schedule.slotOf(type).startEpochMillis,
+                            schedule.timeZoneId,
+                          ),
+                        slotBg = slotBg,
+                        labelColor = secondaryText,
+                        timeColor = primaryText,
+                        modifier = Modifier.weight(1f),
+                      )
+                    }
+                  }
+                }
+            }
           }
         }
       }
@@ -444,10 +550,36 @@ private fun WidgetLivePreviewCard(
 }
 
 @Composable
+private fun PreviewSlotPill(
+  label: String,
+  clock: String,
+  slotBg: Color,
+  labelColor: Color,
+  timeColor: Color,
+  modifier: Modifier = Modifier,
+) {
+  Surface(modifier = modifier, shape = RoundedCornerShape(7.dp), color = slotBg) {
+    Column(
+      modifier = Modifier.padding(vertical = 2.dp, horizontal = 3.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+      Text(text = label, fontSize = 8.sp, fontWeight = FontWeight.SemiBold, color = labelColor, maxLines = 1)
+      Text(
+        text = clock,
+        fontSize = 10.sp,
+        fontFamily = JetBrainsMonoFamily,
+        fontWeight = FontWeight.Bold,
+        color = timeColor,
+      )
+    }
+  }
+}
+
+@Composable
 private fun WidgetOptionPinCard(
   title: String,
   subtitle: String,
-  icon: androidx.compose.ui.graphics.vector.ImageVector,
+  icon: ImageVector,
   onPin: () -> Unit,
   testTag: String,
 ) {

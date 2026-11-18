@@ -72,24 +72,41 @@
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.example.widget.ACTION_REFRESH_WIDGET" />
+                <action android:name="com.example.widget.ACTION_CYCLE_THEME" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/prayer_widget_info" />
         </receiver>
 
-        <!-- Widget Opsi 2 (2x2): Shalat Berikutnya Fokus -->
+        <!-- Widget Opsi 2 (3x2): Shalat Berikutnya + 6 Jadwal -->
         <receiver
-            android:name=".widget.CompactPrayerWidgetProvider"
+            android:name=".widget.MediumPrayerWidgetProvider"
             android:exported="true"
-            android:label="@string/widget_label_compact">
+            android:label="@string/widget_label_3x2">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.example.widget.ACTION_REFRESH_COMPACT_WIDGET" />
+                <action android:name="com.example.widget.ACTION_REFRESH_3X2_WIDGET" />
+                <action android:name="com.example.widget.ACTION_CYCLE_3X2_THEME" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/prayer_widget_compact_info" />
+                android:resource="@xml/prayer_widget_3x2_info" />
+        </receiver>
+
+        <!-- Widget Opsi 3 (4x2): Jadwal Lengkap Lebar -->
+        <receiver
+            android:name=".widget.WidePrayerWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_label_4x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_REFRESH_4X2_WIDGET" />
+                <action android:name="com.example.widget.ACTION_CYCLE_4X2_THEME" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/prayer_widget_4x2_info" />
         </receiver>
     </application>
 

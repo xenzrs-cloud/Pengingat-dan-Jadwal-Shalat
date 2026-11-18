@@ -10,6 +10,7 @@ import com.example.audio.AudioPreviewPlayer
 import com.example.data.CustomAudioStorage
 import com.example.data.LocationHelper
 import com.example.data.PrayerPreferencesRepository
+import com.example.domain.AppThemeMode
 import com.example.domain.DailyPrayerSchedule
 import com.example.domain.IndonesianCity
 import com.example.domain.KemenagPrayerCalculator
@@ -322,11 +323,34 @@ class PrayerViewModel(application: Application) : AndroidViewModel(application) 
     }
   }
 
+  fun setAppThemeMode(mode: AppThemeMode) {
+    val optimisticPrefs = _uiState.value.preferences.copy(appThemeMode = mode)
+    _uiState.update {
+      it.copy(
+        preferences = optimisticPrefs,
+        snackbarMessage = "Tema aplikasi diubah: ${mode.label}",
+      )
+    }
+    viewModelScope.launch {
+      repository.setAppThemeMode(mode)
+    }
+  }
+
   fun setWidgetThemeMode(mode: WidgetThemeMode) {
+    val optimisticPrefs = _uiState.value.preferences.copy(widgetThemeMode = mode)
+    _uiState.update {
+      it.copy(
+        preferences = optimisticPrefs,
+        snackbarMessage = "Tema widget diubah: ${mode.label}",
+      )
+    }
     viewModelScope.launch {
       repository.setWidgetThemeMode(mode)
-      _uiState.update {
-        it.copy(snackbarMessage = "Tema aplikasi & widget diubah: ${mode.label}")
+      withContext(Dispatchers.IO) {
+        com.example.widget.PrayerScheduleWidgetProvider.updateAllWidgetsWithPrefs(
+          appContext,
+          optimisticPrefs,
+        )
       }
     }
   }

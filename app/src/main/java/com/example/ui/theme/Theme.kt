@@ -10,7 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.example.domain.WidgetThemeMode
+import com.example.domain.AppThemeMode
 import com.example.widget.DynamicDayPhase
 
 private val DefaultDarkColorScheme =
@@ -65,56 +65,56 @@ private val DefaultLightColorScheme =
     errorContainer = ErrorContainerLight,
   )
 
-// Bright Daytime Mosque Palette (Sky Blue & Fresh Emerald)
+// Bright Daytime Mosque Palette (Sky Blue & Fresh Emerald — Softly Tinted Sky Surfaces)
 private val DayMosqueLightColorScheme =
   lightColorScheme(
     primary = Color(0xFF0284C7),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFE0F2FE),
+    onPrimary = SoftInkOnAccent,
+    primaryContainer = Color(0xFFD9EFFD),
     onPrimaryContainer = Color(0xFF0C4A6E),
     secondary = Color(0xFF0F766E),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFCCFBF1),
+    onSecondary = SoftInkOnAccent,
+    secondaryContainer = Color(0xFFC8F5EC),
     onSecondaryContainer = Color(0xFF042F2E),
     tertiary = Color(0xFF0D9488),
-    onTertiary = Color.White,
-    tertiaryContainer = Color(0xFF99F6E4),
+    onTertiary = SoftInkOnAccent,
+    tertiaryContainer = Color(0xFFBDF2E8),
     onTertiaryContainer = Color(0xFF134E4A),
-    background = Color(0xFFEBF8FF),
+    background = Color(0xFFE3F2FD),
     onBackground = Color(0xFF0F172A),
-    surface = Color(0xFFFFFFFF),
+    surface = Color(0xFFF1F8FE),
     onSurface = Color(0xFF0F172A),
-    surfaceVariant = Color(0xFFE0F2FE),
+    surfaceVariant = Color(0xFFD6ECFC),
     onSurfaceVariant = Color(0xFF334155),
-    outline = Color(0xFF94A3B8),
-    outlineVariant = Color(0xFFBAE6FD),
+    outline = Color(0xFF90B8D4),
+    outlineVariant = Color(0xFFBBE0F8),
     error = ErrorLight,
     errorContainer = ErrorContainerLight,
   )
 
-// Dawn Mosque Palette (Deep Indigo-Violet & Rose Gold)
+// Dawn Mosque Palette (Deep Indigo-Violet & Rose Gold — Soft Mist Lavender Surfaces)
 private val DawnMosqueLightColorScheme =
   lightColorScheme(
     primary = Color(0xFF5B21B6),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFEDE9FE),
+    onPrimary = SoftInkOnAccent,
+    primaryContainer = Color(0xFFE7DFFE),
     onPrimaryContainer = Color(0xFF2E1065),
-    secondary = Color(0xFFDB2777),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFCE7F3),
+    secondary = Color(0xFFBE185D),
+    onSecondary = SoftInkOnAccent,
+    secondaryContainer = Color(0xFFFADCEB),
     onSecondaryContainer = Color(0xFF500724),
     tertiary = Color(0xFFD97706),
-    onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFFEF3C7),
+    onTertiary = SoftInkOnAccent,
+    tertiaryContainer = Color(0xFFFDECC8),
     onTertiaryContainer = Color(0xFF451A03),
-    background = Color(0xFFF5F3FF),
+    background = Color(0xFFF0ECFE),
     onBackground = Color(0xFF1E1B4B),
-    surface = Color(0xFFFFFFFF),
+    surface = Color(0xFFF8F5FF),
     onSurface = Color(0xFF1E1B4B),
-    surfaceVariant = Color(0xFFEDE9FE),
+    surfaceVariant = Color(0xFFE5DDFC),
     onSurfaceVariant = Color(0xFF4C1D95),
-    outline = Color(0xFFC4B5FD),
-    outlineVariant = Color(0xFFDDD6FE),
+    outline = Color(0xFFBBA8F2),
+    outlineVariant = Color(0xFFD7CBFA),
     error = ErrorLight,
     errorContainer = ErrorContainerLight,
   )
@@ -145,29 +145,29 @@ private val DawnMosqueDarkColorScheme =
     errorContainer = ErrorContainerDark,
   )
 
-// Sunset Mosque Palette (Warm Amber Orange & Magenta Plum)
+// Sunset Mosque Palette (Warm Amber Orange & Magenta Plum — Soft Apricot Cream Surfaces)
 private val SunsetMosqueLightColorScheme =
   lightColorScheme(
     primary = Color(0xFFEA580C),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFEDD5),
+    onPrimary = SoftInkOnAccent,
+    primaryContainer = Color(0xFFFEE5CC),
     onPrimaryContainer = Color(0xFF431407),
     secondary = Color(0xFFBE185D),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFCE7F3),
+    onSecondary = SoftInkOnAccent,
+    secondaryContainer = Color(0xFFFADCEB),
     onSecondaryContainer = Color(0xFF500724),
     tertiary = Color(0xFF7C3AED),
-    onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFEDE9FE),
+    onTertiary = SoftInkOnAccent,
+    tertiaryContainer = Color(0xFFE7DFFE),
     onTertiaryContainer = Color(0xFF2E1065),
-    background = Color(0xFFFFF7ED),
+    background = Color(0xFFFFF0E1),
     onBackground = Color(0xFF27140E),
-    surface = Color(0xFFFFFFFF),
+    surface = Color(0xFFFFF8F1),
     onSurface = Color(0xFF27140E),
-    surfaceVariant = Color(0xFFFFEDD5),
+    surfaceVariant = Color(0xFFFEE4CA),
     onSurfaceVariant = Color(0xFF7C2D12),
-    outline = Color(0xFFFDBA74),
-    outlineVariant = Color(0xFFFED7AA),
+    outline = Color(0xFFE6AC78),
+    outlineVariant = Color(0xFFF7CFA8),
     error = ErrorLight,
     errorContainer = ErrorContainerLight,
   )
@@ -229,31 +229,29 @@ private val AppShapes =
   Shapes(
     small = RoundedCornerShape(10.dp),
     medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp),
+    large = RoundedCornerShape(22.dp),
   )
 
 fun resolveColorScheme(
   darkTheme: Boolean,
-  themeMode: WidgetThemeMode,
+  themeMode: AppThemeMode,
   dynamicPhase: DynamicDayPhase,
 ): ColorScheme {
-  if (themeMode == WidgetThemeMode.DEFAULT) {
+  if (themeMode == AppThemeMode.DEFAULT) {
     return if (darkTheme) DefaultDarkColorScheme else DefaultLightColorScheme
   }
 
   val activePhase =
     when (themeMode) {
-      WidgetThemeMode.DYNAMIC_MOSQUE -> dynamicPhase
-      WidgetThemeMode.MOSQUE_DAY -> DynamicDayPhase.DAY
-      WidgetThemeMode.MOSQUE_SUNSET -> DynamicDayPhase.SUNSET
-      WidgetThemeMode.MOSQUE_NIGHT -> DynamicDayPhase.NIGHT
-      WidgetThemeMode.DEFAULT -> DynamicDayPhase.DAY
+      AppThemeMode.DYNAMIC_MOSQUE -> dynamicPhase
+      AppThemeMode.MOSQUE_DAY -> DynamicDayPhase.DAY
+      AppThemeMode.MOSQUE_SUNSET -> DynamicDayPhase.SUNSET
+      AppThemeMode.MOSQUE_NIGHT -> DynamicDayPhase.NIGHT
+      AppThemeMode.DEFAULT -> DynamicDayPhase.DAY
     }
 
   return when (activePhase) {
-    DynamicDayPhase.DAY ->
-      if (darkTheme && themeMode == WidgetThemeMode.DEFAULT) DefaultDarkColorScheme
-      else DayMosqueLightColorScheme
+    DynamicDayPhase.DAY -> DayMosqueLightColorScheme
     DynamicDayPhase.DAWN ->
       if (darkTheme) DawnMosqueDarkColorScheme else DawnMosqueLightColorScheme
     DynamicDayPhase.SUNSET ->
@@ -265,7 +263,7 @@ fun resolveColorScheme(
 @Composable
 fun PengingatShalatTheme(
   darkTheme: Boolean = isSystemInDarkTheme(),
-  themeMode: WidgetThemeMode = WidgetThemeMode.DEFAULT,
+  themeMode: AppThemeMode = AppThemeMode.DYNAMIC_MOSQUE,
   dynamicPhase: DynamicDayPhase = DynamicDayPhase.DAY,
   content: @Composable () -> Unit,
 ) {

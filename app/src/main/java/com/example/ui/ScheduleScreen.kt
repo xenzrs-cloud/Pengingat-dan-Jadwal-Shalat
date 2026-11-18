@@ -1,10 +1,13 @@
 package com.example.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,10 +39,11 @@ import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VolumeOff
@@ -50,7 +54,6 @@ import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -58,6 +61,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -81,24 +85,33 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.domain.AppThemeMode
 import com.example.domain.DailyPrayerSchedule
 import com.example.domain.IndonesianCities
 import com.example.domain.IndonesianCity
 import com.example.domain.KemenagPrayerCalculator
+import com.example.domain.PrayerPreferences
 import com.example.domain.PrayerSlot
 import com.example.domain.PrayerType
 import com.example.domain.QuickSoundOverride
 import com.example.domain.WidgetThemeMode
 import com.example.ui.theme.JetBrainsMonoFamily
+import com.example.ui.theme.SoftInkOnAccent
 import com.example.widget.DynamicDayPhase
 import com.example.widget.WidgetThemeHelper
 import java.util.Locale
@@ -112,6 +125,7 @@ fun ScheduleScreen(
   onRefreshGps: () -> Unit,
   onSelectCity: (IndonesianCity) -> Unit,
   onOpenSoundSettings: () -> Unit,
+  onSelectAppThemeMode: (AppThemeMode) -> Unit,
   onSelectWidgetThemeMode: (WidgetThemeMode) -> Unit,
   onPinWidgetStyle: (WidgetStyleOption) -> Unit,
   onToggleAlreadyPrayed: (PrayerType, Boolean) -> Unit,
@@ -119,6 +133,15 @@ fun ScheduleScreen(
   onSnackbarShown: () -> Unit,
 ) {
   val snackbarHostState = remember { SnackbarHostState() }
+  val haptics = LocalHapticFeedback.current
+  val togglePrayedWithHaptics: (PrayerType, Boolean) -> Unit = { type, checked ->
+    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    onToggleAlreadyPrayed(type, checked)
+  }
+  val selectOverrideWithHaptics: (PrayerType, QuickSoundOverride) -> Unit = { type, ov ->
+    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    onSelectQuickOverride(type, ov)
+  }
   var showCityPicker by remember { mutableStateOf(false) }
   var showWidgetOptions by remember { mutableStateOf(false) }
   var showThemePicker by remember { mutableStateOf(false) }
@@ -126,7 +149,7 @@ fun ScheduleScreen(
   val currentPhase =
     WidgetThemeHelper.resolveDynamicPhase(uiState.nowMillis, uiState.preferences.timeZoneId)
   val activeMosqueDrawable =
-    resolveAppMosqueDrawable(uiState.preferences.widgetThemeMode, currentPhase)
+    resolveAppMosqueDrawable(uiState.preferences.appThemeMode, currentPhase)
 
   LaunchedEffect(uiState.snackbarMessage) {
     uiState.snackbarMessage?.let { msg ->
@@ -157,7 +180,7 @@ fun ScheduleScreen(
           painter = painterResource(id = activeMosqueDrawable),
           contentDescription = null,
           contentScale = ContentScale.Crop,
-          alpha = 0.16f,
+          alpha = 0.22f,
           modifier = Modifier.fillMaxSize(),
         )
       }
@@ -200,6 +223,14 @@ fun ScheduleScreen(
             item {
               DualCountdownSection(uiState = uiState, timeZoneId = schedule.timeZoneId)
             }
+            item {
+              DailyPrayerProgressCard(
+                dateKey = schedule.dateKey,
+                preferences = uiState.preferences,
+                activePrayerType = uiState.activePrayer?.type,
+                onTogglePrayer = togglePrayedWithHaptics,
+              )
+            }
           }
 
           LazyColumn(
@@ -213,7 +244,7 @@ fun ScheduleScreen(
                 subuhSlot = schedule.slotOf(PrayerType.SUBUH),
                 override = uiState.preferences.overrideFor(PrayerType.IMSAK),
                 isNext = uiState.nextEvent?.type == PrayerType.IMSAK,
-                onSelectOverride = { ov -> onSelectQuickOverride(PrayerType.IMSAK, ov) },
+                onSelectOverride = { ov -> selectOverrideWithHaptics(PrayerType.IMSAK, ov) },
               )
             }
             item {
@@ -225,9 +256,9 @@ fun ScheduleScreen(
                   uiState.preferences.isCheckedToday(PrayerType.SUBUH, schedule.dateKey),
                 override = uiState.preferences.overrideFor(PrayerType.SUBUH),
                 onToggleAlreadyPrayed = { checked ->
-                  onToggleAlreadyPrayed(PrayerType.SUBUH, checked)
+                  togglePrayedWithHaptics(PrayerType.SUBUH, checked)
                 },
-                onSelectOverride = { ov -> onSelectQuickOverride(PrayerType.SUBUH, ov) },
+                onSelectOverride = { ov -> selectOverrideWithHaptics(PrayerType.SUBUH, ov) },
               )
             }
             item { SyuruqInfoStrip(slot = schedule.slotOf(PrayerType.TERBIT)) }
@@ -243,9 +274,9 @@ fun ScheduleScreen(
                   uiState.preferences.isCheckedToday(prayerType, schedule.dateKey),
                 override = uiState.preferences.overrideFor(prayerType),
                 onToggleAlreadyPrayed = { checked ->
-                  onToggleAlreadyPrayed(prayerType, checked)
+                  togglePrayedWithHaptics(prayerType, checked)
                 },
-                onSelectOverride = { ov -> onSelectQuickOverride(prayerType, ov) },
+                onSelectOverride = { ov -> selectOverrideWithHaptics(prayerType, ov) },
               )
             }
           }
@@ -253,8 +284,8 @@ fun ScheduleScreen(
       } else {
         LazyColumn(
           modifier = Modifier.fillMaxSize(),
-          contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-          verticalArrangement = Arrangement.spacedBy(12.dp),
+          contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+          verticalArrangement = Arrangement.spacedBy(10.dp),
           horizontalAlignment = Alignment.CenterHorizontally,
         ) {
           item {
@@ -293,6 +324,16 @@ fun ScheduleScreen(
           }
 
           item {
+            DailyPrayerProgressCard(
+              dateKey = schedule.dateKey,
+              preferences = uiState.preferences,
+              activePrayerType = uiState.activePrayer?.type,
+              onTogglePrayer = togglePrayedWithHaptics,
+              modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
+            )
+          }
+
+          item {
             SectionHeaderRow(
               title = "Jadwal Hari Ini",
               subtitle = stringResource(R.string.label_kemenag_standard),
@@ -307,7 +348,7 @@ fun ScheduleScreen(
               subuhSlot = schedule.slotOf(PrayerType.SUBUH),
               override = uiState.preferences.overrideFor(PrayerType.IMSAK),
               isNext = uiState.nextEvent?.type == PrayerType.IMSAK,
-              onSelectOverride = { ov -> onSelectQuickOverride(PrayerType.IMSAK, ov) },
+              onSelectOverride = { ov -> selectOverrideWithHaptics(PrayerType.IMSAK, ov) },
               modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
             )
           }
@@ -322,9 +363,9 @@ fun ScheduleScreen(
                 uiState.preferences.isCheckedToday(PrayerType.SUBUH, schedule.dateKey),
               override = uiState.preferences.overrideFor(PrayerType.SUBUH),
               onToggleAlreadyPrayed = { checked ->
-                onToggleAlreadyPrayed(PrayerType.SUBUH, checked)
+                togglePrayedWithHaptics(PrayerType.SUBUH, checked)
               },
-              onSelectOverride = { ov -> onSelectQuickOverride(PrayerType.SUBUH, ov) },
+              onSelectOverride = { ov -> selectOverrideWithHaptics(PrayerType.SUBUH, ov) },
               modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
             )
           }
@@ -348,8 +389,10 @@ fun ScheduleScreen(
               isNext = uiState.nextEvent?.type == prayerType,
               alreadyPrayed = uiState.preferences.isCheckedToday(prayerType, schedule.dateKey),
               override = uiState.preferences.overrideFor(prayerType),
-              onToggleAlreadyPrayed = { checked -> onToggleAlreadyPrayed(prayerType, checked) },
-              onSelectOverride = { ov -> onSelectQuickOverride(prayerType, ov) },
+              onToggleAlreadyPrayed = { checked ->
+                togglePrayedWithHaptics(prayerType, checked)
+              },
+              onSelectOverride = { ov -> selectOverrideWithHaptics(prayerType, ov) },
               modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
             )
           }
@@ -357,7 +400,7 @@ fun ScheduleScreen(
       }
     }
   }
-  }
+}
 
   if (showCityPicker) {
     IndonesianCityPickerDialog(
@@ -383,26 +426,31 @@ fun ScheduleScreen(
 
   if (showThemePicker) {
     ThemePickerDialog(
-      selectedMode = uiState.preferences.widgetThemeMode,
+      selectedMode = uiState.preferences.appThemeMode,
       currentPhase = currentPhase,
-      onSelectMode = onSelectWidgetThemeMode,
+      onSelectMode = onSelectAppThemeMode,
       onDismiss = { showThemePicker = false },
     )
   }
 }
 
-private fun resolveAppMosqueDrawable(
-  mode: WidgetThemeMode,
+internal fun resolveEffectiveAppPhase(
+  mode: AppThemeMode,
+  currentPhase: DynamicDayPhase,
+): DynamicDayPhase? =
+  when (mode) {
+    AppThemeMode.DEFAULT -> null
+    AppThemeMode.DYNAMIC_MOSQUE -> currentPhase
+    AppThemeMode.MOSQUE_DAY -> DynamicDayPhase.DAY
+    AppThemeMode.MOSQUE_SUNSET -> DynamicDayPhase.SUNSET
+    AppThemeMode.MOSQUE_NIGHT -> DynamicDayPhase.NIGHT
+  }
+
+internal fun resolveAppMosqueDrawable(
+  mode: AppThemeMode,
   currentPhase: DynamicDayPhase,
 ): Int? {
-  val phase =
-    when (mode) {
-      WidgetThemeMode.DEFAULT -> return null
-      WidgetThemeMode.DYNAMIC_MOSQUE -> currentPhase
-      WidgetThemeMode.MOSQUE_DAY -> DynamicDayPhase.DAY
-      WidgetThemeMode.MOSQUE_SUNSET -> DynamicDayPhase.SUNSET
-      WidgetThemeMode.MOSQUE_NIGHT -> DynamicDayPhase.NIGHT
-    }
+  val phase = resolveEffectiveAppPhase(mode, currentPhase) ?: return null
   return when (phase) {
     DynamicDayPhase.DAWN -> R.drawable.bg_widget_mosque_dawn
     DynamicDayPhase.DAY -> R.drawable.bg_widget_mosque_day
@@ -412,22 +460,16 @@ private fun resolveAppMosqueDrawable(
 }
 
 private fun phaseAtmosphereLabel(
-  mode: WidgetThemeMode,
+  mode: AppThemeMode,
   currentPhase: DynamicDayPhase,
 ): String? {
-  val phase =
-    when (mode) {
-      WidgetThemeMode.DEFAULT -> return null
-      WidgetThemeMode.DYNAMIC_MOSQUE -> currentPhase
-      WidgetThemeMode.MOSQUE_DAY -> DynamicDayPhase.DAY
-      WidgetThemeMode.MOSQUE_SUNSET -> DynamicDayPhase.SUNSET
-      WidgetThemeMode.MOSQUE_NIGHT -> DynamicDayPhase.NIGHT
-    }
+  val phase = resolveEffectiveAppPhase(mode, currentPhase) ?: return null
+  val prefix = if (mode == AppThemeMode.DYNAMIC_MOSQUE) "Dinamis • " else ""
   return when (phase) {
-    DynamicDayPhase.DAWN -> "Suasana Fajar"
-    DynamicDayPhase.DAY -> "Suasana Siang"
-    DynamicDayPhase.SUNSET -> "Suasana Senja"
-    DynamicDayPhase.NIGHT -> "Suasana Malam"
+    DynamicDayPhase.DAWN -> "${prefix}Suasana Fajar"
+    DynamicDayPhase.DAY -> "${prefix}Suasana Siang"
+    DynamicDayPhase.SUNSET -> "${prefix}Suasana Senja"
+    DynamicDayPhase.NIGHT -> "${prefix}Suasana Malam"
   }
 }
 
@@ -444,16 +486,29 @@ private fun DashboardHeroSection(
   onPinWidget: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val primaryColor = MaterialTheme.colorScheme.primary
-  val tertiaryColor = MaterialTheme.colorScheme.tertiary
-  val containerHighlight = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.08f)
+  val isDark = isSystemInDarkTheme()
   val isMosqueTheme = mosqueBgRes != null
-  val heroTextColor = if (isMosqueTheme) Color.White else MaterialTheme.colorScheme.onPrimary
-  val heroButtonAccent =
-    if (isMosqueTheme && activePhase == DynamicDayPhase.DAY) Color(0xFF0369A1)
-    else MaterialTheme.colorScheme.primary
+  val effectiveAppPhase = resolveEffectiveAppPhase(uiState.preferences.appThemeMode, activePhase)
+  val isDaySky = isMosqueTheme && effectiveAppPhase == DynamicDayPhase.DAY
+
+  val heroTextColor = SoftInkOnAccent
+  val containerHighlight = SoftInkOnAccent.copy(alpha = 0.08f)
+  val defaultHeroGradient =
+    if (isDark) listOf(Color(0xFF0E4F49), Color(0xFF0B3B4E))
+    else listOf(Color(0xFF0F766E), Color(0xFF0E7490))
+
+  // Translucent glass button tokens matched to the hero backdrop (never stark white)
+  val primaryGlassFill =
+    if (isDaySky) Color(0xFF083352).copy(alpha = 0.44f)
+    else SoftInkOnAccent.copy(alpha = 0.22f)
+  val primaryGlassBorder = SoftInkOnAccent.copy(alpha = 0.52f)
+  val secondaryGlassFill =
+    if (isDaySky) Color(0xFF083352).copy(alpha = 0.28f)
+    else SoftInkOnAccent.copy(alpha = 0.13f)
+  val secondaryGlassBorder = SoftInkOnAccent.copy(alpha = 0.34f)
+
   val atmosphereLabel =
-    phaseAtmosphereLabel(uiState.preferences.widgetThemeMode, activePhase)
+    phaseAtmosphereLabel(uiState.preferences.appThemeMode, activePhase)
 
   val dateText =
     remember(schedule.dateKey, schedule.timeZoneId) {
@@ -468,9 +523,9 @@ private fun DashboardHeroSection(
     )
 
   Surface(
-    modifier = modifier.clip(RoundedCornerShape(24.dp)),
-    shape = RoundedCornerShape(24.dp),
-    shadowElevation = 3.dp,
+    modifier = modifier.clip(RoundedCornerShape(22.dp)),
+    shape = RoundedCornerShape(22.dp),
+    shadowElevation = 2.dp,
   ) {
     Box(
       modifier =
@@ -479,18 +534,16 @@ private fun DashboardHeroSection(
             if (isMosqueTheme) {
               Modifier.background(Color(0xFF0F172A))
             } else {
-              Modifier.background(
-                  brush = Brush.linearGradient(colors = listOf(primaryColor, tertiaryColor))
-                )
+              Modifier.background(brush = Brush.linearGradient(colors = defaultHeroGradient))
                 .drawBehind {
                   drawCircle(
                     color = containerHighlight,
-                    radius = size.width * 0.36f,
+                    radius = size.width * 0.34f,
                     center = Offset(size.width * 0.92f, size.height * 0.14f),
                   )
                   drawCircle(
                     color = containerHighlight,
-                    radius = size.width * 0.22f,
+                    radius = size.width * 0.20f,
                     center = Offset(size.width * 0.10f, size.height * 0.95f),
                   )
                 }
@@ -504,21 +557,21 @@ private fun DashboardHeroSection(
           contentScale = ContentScale.Crop,
           modifier = Modifier.matchParentSize(),
         )
-        val scrimColor =
-          if (activePhase == DynamicDayPhase.DAY &&
-            uiState.preferences.widgetThemeMode != WidgetThemeMode.MOSQUE_NIGHT &&
-            uiState.preferences.widgetThemeMode != WidgetThemeMode.MOSQUE_SUNSET
-          ) {
-            Color(0xFF0C4A6E).copy(alpha = 0.42f)
-          } else {
-            Color(0xFF020617).copy(alpha = 0.36f)
-          }
-        Box(modifier = Modifier.matchParentSize().background(scrimColor))
+        val topScrim = if (isDaySky) Color(0xFF0C4A6E) else Color(0xFF020617)
+        Box(
+          modifier =
+            Modifier.matchParentSize()
+              .background(
+                Brush.verticalGradient(
+                  colors = listOf(topScrim.copy(alpha = 0.56f), topScrim.copy(alpha = 0.28f))
+                )
+              )
+        )
       }
 
       Column(
-        modifier = Modifier.fillMaxWidth().padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
       ) {
         Row(
           modifier = Modifier.fillMaxWidth(),
@@ -542,12 +595,13 @@ private fun DashboardHeroSection(
               Spacer(modifier = Modifier.height(6.dp))
               Surface(
                 shape = RoundedCornerShape(100.dp),
-                color = Color.White.copy(alpha = 0.20f),
+                color = secondaryGlassFill,
+                border = BorderStroke(1.dp, secondaryGlassBorder),
               ) {
                 Text(
                   text = atmosphereLabel,
                   style = MaterialTheme.typography.labelSmall,
-                  color = Color.White,
+                  color = heroTextColor,
                   fontWeight = FontWeight.SemiBold,
                   modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
                 )
@@ -555,10 +609,11 @@ private fun DashboardHeroSection(
             }
           }
 
-          Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Surface(
               shape = CircleShape,
-              color = heroTextColor.copy(alpha = 0.20f),
+              color = secondaryGlassFill,
+              border = BorderStroke(1.dp, secondaryGlassBorder),
             ) {
               IconButton(
                 onClick = onOpenThemePicker,
@@ -574,7 +629,8 @@ private fun DashboardHeroSection(
 
             Surface(
               shape = CircleShape,
-              color = heroTextColor.copy(alpha = 0.20f),
+              color = secondaryGlassFill,
+              border = BorderStroke(1.dp, secondaryGlassBorder),
             ) {
               IconButton(
                 onClick = onPinWidget,
@@ -590,7 +646,8 @@ private fun DashboardHeroSection(
 
             Surface(
               shape = CircleShape,
-              color = heroTextColor.copy(alpha = 0.20f),
+              color = secondaryGlassFill,
+              border = BorderStroke(1.dp, secondaryGlassBorder),
             ) {
               IconButton(
                 onClick = onOpenSoundSettings,
@@ -606,13 +663,14 @@ private fun DashboardHeroSection(
           }
         }
 
-        // Location Info Pill
+        // Location Info Pill (soft translucent glass)
         Surface(
-          shape = RoundedCornerShape(14.dp),
-          color = heroTextColor.copy(alpha = 0.16f),
+          shape = RoundedCornerShape(12.dp),
+          color = secondaryGlassFill,
+          border = BorderStroke(1.dp, secondaryGlassBorder.copy(alpha = 0.6f)),
         ) {
           Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
           ) {
@@ -622,7 +680,7 @@ private fun DashboardHeroSection(
                 else Icons.Rounded.LocationCity,
               contentDescription = null,
               tint = heroTextColor,
-              modifier = Modifier.size(20.dp),
+              modifier = Modifier.size(18.dp),
             )
             Column(modifier = Modifier.weight(1f)) {
               Text(
@@ -642,7 +700,7 @@ private fun DashboardHeroSection(
           }
         }
 
-        // Action Buttons Row
+        // Action Buttons Row (Both translucent glass matching hero backdrop)
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -654,8 +712,9 @@ private fun DashboardHeroSection(
                 .clip(RoundedCornerShape(12.dp))
                 .clickable(enabled = !uiState.isLoadingLocation, onClick = onRefreshGps)
                 .testTag("refresh_gps_button"),
-            color = Color.White,
+            color = primaryGlassFill,
             shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.2.dp, primaryGlassBorder),
           ) {
             Row(
               modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
@@ -666,13 +725,13 @@ private fun DashboardHeroSection(
                 CircularProgressIndicator(
                   modifier = Modifier.size(16.dp),
                   strokeWidth = 2.dp,
-                  color = heroButtonAccent,
+                  color = heroTextColor,
                 )
               } else {
                 Icon(
                   imageVector = Icons.Rounded.MyLocation,
                   contentDescription = stringResource(R.string.cd_gps_refresh),
-                  tint = heroButtonAccent,
+                  tint = heroTextColor,
                   modifier = Modifier.size(18.dp),
                 )
               }
@@ -680,7 +739,7 @@ private fun DashboardHeroSection(
               Text(
                 text = stringResource(R.string.action_refresh_gps),
                 style = MaterialTheme.typography.labelLarge,
-                color = heroButtonAccent,
+                color = heroTextColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
               )
@@ -694,9 +753,9 @@ private fun DashboardHeroSection(
                 .clip(RoundedCornerShape(12.dp))
                 .clickable(onClick = onOpenCityPicker)
                 .testTag("choose_city_button"),
-            color = heroTextColor.copy(alpha = 0.20f),
+            color = secondaryGlassFill,
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, heroTextColor.copy(alpha = 0.42f)),
+            border = BorderStroke(1.dp, secondaryGlassBorder),
           ) {
             Row(
               modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
@@ -843,21 +902,45 @@ private fun DualCountdownSection(
 
     // 2. Hitung mundur sisa waktu menuju batas habis shalat yang sedang aktif
     val active = uiState.activePrayer
-    val isUrgentRemaining = active != null && active.remainingMillis <= 30 * 60_000L
+    val isUrgent15 = active != null && active.remainingMillis <= 15 * 60_000L
+    val isWarning30 = active != null && active.remainingMillis <= 30 * 60_000L
+    val activeWindowProgress =
+      if (active != null && active.endMillis > active.startMillis) {
+        ((uiState.nowMillis - active.startMillis).toFloat() /
+            (active.endMillis - active.startMillis).toFloat())
+          .coerceIn(0f, 1f)
+      } else {
+        0f
+      }
+    val animatedActiveProgress by
+      animateFloatAsState(
+        targetValue = activeWindowProgress,
+        animationSpec = tween(durationMillis = 450),
+        label = "activeWindowProgress",
+      )
+    val accentActiveColor =
+      when {
+        isUrgent15 -> MaterialTheme.colorScheme.error
+        isWarning30 -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.tertiary
+      }
+
     Card(
       modifier = Modifier.weight(1f),
       shape = RoundedCornerShape(18.dp),
       colors =
         CardDefaults.cardColors(
           containerColor =
-            if (isUrgentRemaining) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
-            else MaterialTheme.colorScheme.surface
+            when {
+              isUrgent15 -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
+              isWarning30 -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+              else -> MaterialTheme.colorScheme.surface
+            }
         ),
       border =
         BorderStroke(
           1.dp,
-          if (isUrgentRemaining) MaterialTheme.colorScheme.secondary
-          else MaterialTheme.colorScheme.outlineVariant,
+          if (isWarning30) accentActiveColor else MaterialTheme.colorScheme.outlineVariant,
         ),
     ) {
       Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -868,9 +951,7 @@ private fun DualCountdownSection(
           Icon(
             imageVector = Icons.Rounded.Timer,
             contentDescription = null,
-            tint =
-              if (isUrgentRemaining) MaterialTheme.colorScheme.secondary
-              else MaterialTheme.colorScheme.tertiary,
+            tint = accentActiveColor,
             modifier = Modifier.size(16.dp),
           )
           Text(
@@ -887,9 +968,7 @@ private fun DualCountdownSection(
             text = "${active.type.displayName} • Habis $endClock",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
-            color =
-              if (isUrgentRemaining) MaterialTheme.colorScheme.secondary
-              else MaterialTheme.colorScheme.tertiary,
+            color = accentActiveColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
           )
@@ -902,6 +981,14 @@ private fun DualCountdownSection(
               ),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
+          )
+          Spacer(modifier = Modifier.height(2.dp))
+          LinearProgressIndicator(
+            progress = { animatedActiveProgress },
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(100.dp)),
+            color = accentActiveColor,
+            trackColor = accentActiveColor.copy(alpha = 0.16f),
+            strokeCap = StrokeCap.Round,
           )
         } else {
           Text(
@@ -917,6 +1004,149 @@ private fun DualCountdownSection(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun DailyPrayerProgressCard(
+  dateKey: String,
+  preferences: PrayerPreferences,
+  activePrayerType: PrayerType?,
+  onTogglePrayer: (PrayerType, Boolean) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val obligatory = PrayerType.obligatoryPrayers
+  val completedCount = obligatory.count { preferences.isCheckedToday(it, dateKey) }
+  val progress by
+    animateFloatAsState(
+      targetValue = completedCount / 5f,
+      animationSpec = tween(durationMillis = 400),
+      label = "dailyPrayerProgress",
+    )
+
+  Card(
+    modifier = modifier.testTag("daily_prayer_progress_card"),
+    shape = RoundedCornerShape(18.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+  ) {
+    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Icon(
+            imageVector = Icons.Rounded.TaskAlt,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp),
+          )
+          Text(
+            text = "Progres Shalat Wajib",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+        }
+        Surface(
+          shape = RoundedCornerShape(100.dp),
+          color =
+            if (completedCount == 5) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.primaryContainer,
+        ) {
+          Text(
+            text = "$completedCount / 5 Selesai",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color =
+              if (completedCount == 5) MaterialTheme.colorScheme.onPrimary
+              else MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+          )
+        }
+      }
+
+      LinearProgressIndicator(
+        progress = { progress },
+        modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(100.dp)),
+        color = MaterialTheme.colorScheme.primary,
+        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        strokeCap = StrokeCap.Round,
+      )
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+      ) {
+        obligatory.forEach { prayerType ->
+          val checked = preferences.isCheckedToday(prayerType, dateKey)
+          val isActive = activePrayerType == prayerType
+          Surface(
+            modifier =
+              Modifier.weight(1f)
+                .minimumInteractiveComponentSize()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { onTogglePrayer(prayerType, !checked) }
+                .semantics { role = Role.Checkbox }
+                .testTag("progress_chip_${prayerType.id}"),
+            shape = RoundedCornerShape(10.dp),
+            color =
+              when {
+                checked -> MaterialTheme.colorScheme.primaryContainer
+                isActive -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+              },
+            border =
+              BorderStroke(
+                width = if (isActive && !checked) 1.5.dp else 1.dp,
+                color =
+                  when {
+                    checked -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                    isActive -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.outlineVariant
+                  },
+              ),
+          ) {
+            Column(
+              modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp),
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+              Icon(
+                imageVector =
+                  if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                contentDescription = if (checked) "${prayerType.displayName} selesai" else prayerType.displayName,
+                tint =
+                  when {
+                    checked -> MaterialTheme.colorScheme.primary
+                    isActive -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                  },
+                modifier = Modifier.size(16.dp),
+              )
+              Text(
+                text = prayerType.displayName,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (checked || isActive) FontWeight.Bold else FontWeight.Medium,
+                color =
+                  when {
+                    checked -> MaterialTheme.colorScheme.onPrimaryContainer
+                    isActive -> MaterialTheme.colorScheme.onTertiaryContainer
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                  },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+              )
+            }
+          }
         }
       }
     }
@@ -1114,7 +1344,7 @@ private fun ObligatoryPrayerCard(
 
   Card(
     modifier = modifier.testTag("card_prayer_${slot.type.id}"),
-    shape = RoundedCornerShape(18.dp),
+    shape = RoundedCornerShape(16.dp),
     colors = CardDefaults.cardColors(containerColor = containerColor),
     border =
       BorderStroke(
@@ -1127,7 +1357,7 @@ private fun ObligatoryPrayerCard(
           },
       ),
   ) {
-    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -1216,41 +1446,64 @@ private fun ObligatoryPrayerCard(
         )
       }
 
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+      Spacer(modifier = Modifier.height(0.dp))
 
-      // Bottom action bar: Checkbox "Sudah Shalat" + Quick Sound Mode Dropdown
+      // Bottom action bar: Tactile Pill "Sudah Shalat" + Quick Sound Mode Dropdown
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
       ) {
-        Row(
+        Surface(
           modifier =
-            Modifier.minimumInteractiveComponentSize()
-              .clip(RoundedCornerShape(10.dp))
+            Modifier.weight(1f)
+              .minimumInteractiveComponentSize()
+              .clip(RoundedCornerShape(12.dp))
               .clickable { onToggleAlreadyPrayed(!alreadyPrayed) }
-              .padding(end = 8.dp)
+              .semantics { role = Role.Checkbox }
               .testTag("already_prayed_toggle_${slot.type.id}"),
-          verticalAlignment = Alignment.CenterVertically,
+          shape = RoundedCornerShape(12.dp),
+          color =
+            if (alreadyPrayed) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+          border =
+            BorderStroke(
+              1.dp,
+              if (alreadyPrayed) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+              else MaterialTheme.colorScheme.outlineVariant,
+            ),
         ) {
-          Checkbox(
-            checked = alreadyPrayed,
-            onCheckedChange = onToggleAlreadyPrayed,
-          )
-          Column {
-            Text(
-              text = stringResource(R.string.label_already_prayed),
-              style = MaterialTheme.typography.labelLarge,
-              color =
+          Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Icon(
+              imageVector =
+                if (alreadyPrayed) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+              contentDescription = null,
+              tint =
                 if (alreadyPrayed) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurface,
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(20.dp),
             )
-            if (alreadyPrayed) {
+            Column {
               Text(
-                text = "Pengingat H-30/H-15 dibatalkan",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
+                text =
+                  if (alreadyPrayed) "Sudah Shalat"
+                  else stringResource(R.string.label_already_prayed),
+                style = MaterialTheme.typography.labelLarge,
+                color =
+                  if (alreadyPrayed) MaterialTheme.colorScheme.onPrimaryContainer
+                  else MaterialTheme.colorScheme.onSurface,
               )
+              if (alreadyPrayed) {
+                Text(
+                  text = "Pengingat H-30/H-15 dibatalkan",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.primary,
+                )
+              }
             }
           }
         }
