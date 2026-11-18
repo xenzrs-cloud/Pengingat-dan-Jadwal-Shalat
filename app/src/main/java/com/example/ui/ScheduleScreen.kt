@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Bedtime
@@ -128,6 +129,7 @@ fun ScheduleScreen(
   onSelectAppThemeMode: (AppThemeMode) -> Unit,
   onSelectWidgetThemeMode: (WidgetThemeMode) -> Unit,
   onPinWidgetStyle: (WidgetStyleOption) -> Unit,
+  onOpenAppSettings: () -> Unit,
   onToggleAlreadyPrayed: (PrayerType, Boolean) -> Unit,
   onSelectQuickOverride: (PrayerType, QuickSoundOverride) -> Unit,
   onSnackbarShown: () -> Unit,
@@ -208,6 +210,15 @@ fun ScheduleScreen(
                   onOpenThemePicker = { showThemePicker = true },
                   onOpenSoundSettings = onOpenSoundSettings,
                   onPinWidget = { showWidgetOptions = true },
+                )
+              }
+              item {
+                QuickAddWidgetCard(
+                  onQuickPin = { style ->
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onPinWidgetStyle(style)
+                  },
+                  onOpenWidgetMenu = { showWidgetOptions = true },
                 )
               }
             if (!hasNotificationPermission || !uiState.canScheduleExactAlarms) {
@@ -299,6 +310,17 @@ fun ScheduleScreen(
               onOpenThemePicker = { showThemePicker = true },
               onOpenSoundSettings = onOpenSoundSettings,
               onPinWidget = { showWidgetOptions = true },
+              modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
+            )
+          }
+
+          item {
+            QuickAddWidgetCard(
+              onQuickPin = { style ->
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onPinWidgetStyle(style)
+              },
+              onOpenWidgetMenu = { showWidgetOptions = true },
               modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
             )
           }
@@ -420,6 +442,7 @@ fun ScheduleScreen(
         showWidgetOptions = false
         onPinWidgetStyle(styleOption)
       },
+      onOpenAppSettings = onOpenAppSettings,
       onDismiss = { showWidgetOptions = false },
     )
   }
@@ -779,6 +802,137 @@ private fun DashboardHeroSection(
             }
           }
         }
+      }
+    }
+  }
+}
+
+@Composable
+private fun QuickAddWidgetCard(
+  onQuickPin: (WidgetStyleOption) -> Unit,
+  onOpenWidgetMenu: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Card(
+    modifier = modifier.testTag("quick_add_widget_card"),
+    shape = RoundedCornerShape(18.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+  ) {
+    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        Row(
+          modifier = Modifier.weight(1f),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+          Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(36.dp),
+          ) {
+            Box(contentAlignment = Alignment.Center) {
+              Icon(
+                imageVector = Icons.Rounded.Widgets,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(19.dp),
+              )
+            }
+          }
+          Column {
+            Text(
+              text = "Tambahkan Widget ke Layar",
+              style = MaterialTheme.typography.titleSmall,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+              text = "Pilih ukuran langsung atau atur tema widget",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+        }
+
+        Surface(
+          modifier =
+            Modifier.minimumInteractiveComponentSize()
+              .clip(RoundedCornerShape(10.dp))
+              .clickable(onClick = onOpenWidgetMenu)
+              .testTag("open_widget_menu_button"),
+          shape = RoundedCornerShape(10.dp),
+          color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.Palette,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(15.dp),
+            )
+            Text(
+              text = "Tema",
+              style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.primary,
+            )
+          }
+        }
+      }
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        listOf(
+            WidgetStyleOption.SIZE_2X2 to "2x2",
+            WidgetStyleOption.SIZE_3X2 to "3x2",
+            WidgetStyleOption.SIZE_4X2 to "4x2",
+          )
+          .forEach { (option, sizeLabel) ->
+            Surface(
+              modifier =
+                Modifier.weight(1f)
+                  .height(48.dp)
+                  .clip(RoundedCornerShape(12.dp))
+                  .clickable { onQuickPin(option) }
+                  .testTag("quick_pin_widget_${sizeLabel}"),
+              shape = RoundedCornerShape(12.dp),
+              color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+              border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+            ) {
+              Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+              ) {
+                Icon(
+                  imageVector = Icons.AutoMirrored.Rounded.AddToHomeScreen,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                  text = "+ $sizeLabel",
+                  style = MaterialTheme.typography.labelLarge,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  maxLines = 1,
+                )
+              }
+            }
+          }
       }
     }
   }

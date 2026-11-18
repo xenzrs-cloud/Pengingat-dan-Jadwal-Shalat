@@ -1,6 +1,7 @@
 package com.example
 
 import android.Manifest
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
@@ -163,13 +164,30 @@ class MainActivity : ComponentActivity() {
                   val manager = AppWidgetManager.getInstance(context)
                   val provider = ComponentName(context, targetClass)
                   if (manager.isRequestPinAppWidgetSupported) {
-                    val requested = manager.requestPinAppWidget(provider, null, null)
-                    if (!requested) {
-                      vm.showSnackbar("Tambahkan widget $label dari menu Widget layar utama.")
+                    val callbackIntent =
+                      Intent(context, targetClass).apply {
+                        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                      }
+                    val successCallback =
+                      PendingIntent.getBroadcast(
+                        context,
+                        9500 + styleOption.ordinal,
+                        callbackIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                      )
+                    val requested =
+                      runCatching { manager.requestPinAppWidget(provider, null, successCallback) }
+                        .getOrDefault(false)
+                    if (requested) {
+                      vm.showSnackbar("Permintaan pasang widget $label dikirim ke layar utama.")
+                    } else {
+                      vm.showSnackbar(
+                        "Launcher HP menolak pin otomatis. Aktifkan izin 'Pintasan layar utama' di Info Aplikasi."
+                      )
                     }
                   } else {
                     vm.showSnackbar(
-                      "Tekan lama layar utama HP lalu pilih Widget → $label."
+                      "Launcher HP ini tidak mendukung pin otomatis. Tekan lama layar utama → Widget → $label."
                     )
                   }
                 } else {
@@ -177,6 +195,13 @@ class MainActivity : ComponentActivity() {
                     "Tekan lama layar utama HP lalu pilih Widget → $label."
                   )
                 }
+              },
+              onOpenAppSettings = {
+                val intent =
+                  Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
+                  }
+                runCatching { startActivity(intent) }
               },
               onToggleAlreadyPrayed = { prayerType, checked ->
                 vm.toggleAlreadyPrayed(prayerType, checked)

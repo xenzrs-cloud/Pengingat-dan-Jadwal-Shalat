@@ -20,9 +20,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AddToHomeScreen
+import androidx.compose.material.icons.automirrored.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Mosque
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.ViewWeek
 import androidx.compose.material3.AlertDialog
@@ -30,6 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -74,6 +76,7 @@ fun WidgetOptionsDialog(
   uiState: PrayerUiState,
   onSelectThemeMode: (WidgetThemeMode) -> Unit,
   onPinWidgetStyle: (WidgetStyleOption) -> Unit,
+  onOpenAppSettings: () -> Unit,
   onDismiss: () -> Unit,
 ) {
   val haptics = LocalHapticFeedback.current
@@ -156,6 +159,31 @@ fun WidgetOptionsDialog(
                 schedule = schedule,
                 nowMillis = uiState.nowMillis,
               )
+
+              val selectedSizeText =
+                when (previewStyle) {
+                  WidgetStyleOption.SIZE_2X2 -> "2x2"
+                  WidgetStyleOption.SIZE_3X2 -> "3x2"
+                  WidgetStyleOption.SIZE_4X2 -> "4x2"
+                }
+              Button(
+                onClick = { onPinWidgetStyle(previewStyle) },
+                modifier = Modifier.fillMaxWidth().testTag("pin_selected_widget_button"),
+                shape = RoundedCornerShape(12.dp),
+                colors =
+                  ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                  ),
+              ) {
+                Icon(
+                  imageVector = Icons.AutoMirrored.Rounded.AddToHomeScreen,
+                  contentDescription = null,
+                  modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Tambahkan Widget $selectedSizeText ke Layar Utama")
+              }
             }
           }
         }
@@ -260,6 +288,45 @@ fun WidgetOptionsDialog(
               onPin = { onPinWidgetStyle(WidgetStyleOption.SIZE_4X2) },
               testTag = "pin_widget_4x2_button",
             )
+          }
+        }
+
+        item {
+          Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+          ) {
+            Column(
+              modifier = Modifier.padding(12.dp),
+              verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+              Text(
+                text = "Widget tidak muncul setelah ditekan?",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+              )
+              Text(
+                text =
+                  "Pada sebagian HP (Xiaomi/MIUI, Oppo, Vivo), aktifkan izin \"Pintasan layar utama\" di menu Info Aplikasi lalu tekan kembali tombol Tambahkan Widget.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+              OutlinedButton(
+                onClick = onOpenAppSettings,
+                modifier = Modifier.fillMaxWidth().testTag("open_widget_permission_settings_button"),
+                shape = RoundedCornerShape(10.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.Rounded.Settings,
+                  contentDescription = null,
+                  modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Buka Info Aplikasi & Izin")
+              }
+            }
           }
         }
       }
@@ -618,7 +685,7 @@ private fun WidgetOptionPinCard(
           ),
       ) {
         Icon(
-          imageVector = Icons.Rounded.AddToHomeScreen,
+          imageVector = Icons.AutoMirrored.Rounded.AddToHomeScreen,
           contentDescription = null,
           modifier = Modifier.size(16.dp),
         )
