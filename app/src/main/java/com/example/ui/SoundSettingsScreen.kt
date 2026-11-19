@@ -70,22 +70,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.alarm.NotificationPreviewMoment
 import com.example.domain.SoundCategory
 import com.example.domain.SoundCategorySetting
 import com.example.domain.SoundMode
-import com.example.widget.WidgetThemeHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,17 +96,13 @@ fun SoundSettingsScreen(
   onPickAudioFile: (SoundCategory, Uri) -> Unit,
   onTestSound: (SoundCategory) -> Unit,
   onStopSound: () -> Unit,
+  onSendLiveNotificationPreview: (NotificationPreviewMoment, SoundCategorySetting) -> Unit,
   onSaveAndApply: () -> Unit,
   onSnackbarShown: () -> Unit,
 ) {
   val snackbarHostState = remember { SnackbarHostState() }
   val haptics = LocalHapticFeedback.current
   var pendingPickerCategory by remember { mutableStateOf<SoundCategory?>(null) }
-
-  val currentPhase =
-    WidgetThemeHelper.resolveDynamicPhase(uiState.nowMillis, uiState.preferences.timeZoneId)
-  val activeMosqueDrawable =
-    resolveAppMosqueDrawable(uiState.preferences.appThemeMode, currentPhase)
 
   val hasUnsavedChanges =
     uiState.draftPrayerEntry != uiState.preferences.prayerEntrySound ||
@@ -129,9 +125,12 @@ fun SoundSettingsScreen(
     }
   }
 
+  val primaryTint = MaterialTheme.colorScheme.primary
+  val backgroundColor = MaterialTheme.colorScheme.background
+
   Scaffold(
     contentWindowInsets = WindowInsets.safeDrawing,
-    containerColor = MaterialTheme.colorScheme.background,
+    containerColor = backgroundColor,
     snackbarHost = { SnackbarHost(snackbarHostState) },
     topBar = {
       TopAppBar(
@@ -227,17 +226,20 @@ fun SoundSettingsScreen(
       }
     },
   ) { innerPadding ->
-    Box(modifier = Modifier.fillMaxSize()) {
-      if (activeMosqueDrawable != null) {
-        Image(
-          painter = painterResource(id = activeMosqueDrawable),
-          contentDescription = null,
-          contentScale = ContentScale.Crop,
-          alpha = 0.12f,
-          modifier = Modifier.fillMaxSize(),
-        )
-      }
-
+    Box(
+      modifier =
+        Modifier.fillMaxSize().drawWithCache {
+          val atmosphere =
+            Brush.verticalGradient(
+              colors =
+                listOf(
+                  primaryTint.copy(alpha = 0.08f),
+                  backgroundColor,
+                )
+            )
+          onDrawBehind { drawRect(atmosphere) }
+        }
+    ) {
       LazyColumn(
         modifier = Modifier.fillMaxSize().padding(innerPadding),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -248,6 +250,16 @@ fun SoundSettingsScreen(
           ChannelVersionNoticeCard(
             channelVersion = uiState.preferences.channelVersion,
             hasUnsavedChanges = hasUnsavedChanges,
+            modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
+          )
+        }
+
+        item {
+          NotificationPreviewCard(
+            uiState = uiState,
+            prayerEntrySetting = uiState.draftPrayerEntry,
+            expiryReminderSetting = uiState.draftExpiryReminder,
+            onSendLiveNotificationPreview = onSendLiveNotificationPreview,
             modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
           )
         }

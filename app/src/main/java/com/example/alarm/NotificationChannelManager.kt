@@ -114,6 +114,9 @@ object NotificationChannelManager {
       NotificationChannel(channelId, name, importance).apply {
         this.description = description
         lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+        if (setting.mode != SoundMode.SILENT) {
+          setBypassDnd(true)
+        }
       }
 
     when (setting.mode) {
@@ -176,6 +179,57 @@ object NotificationChannelManager {
 
     nm.createNotificationChannel(vibrateChannel)
     nm.createNotificationChannel(silentChannel)
+  }
+
+  /**
+   * Heads-up visual alarm channel used when [PrayerAlarmSoundService] handles looping
+   * `USAGE_ALARM` playback directly so channel audio never echoes or duplicates.
+   */
+  fun ensureAlarmBannerChannel(context: Context): String {
+    val channelId = "channel_prayer_alarm_banner_v2"
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return channelId
+
+    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val existing = nm.getNotificationChannel(channelId)
+    if (existing != null) return channelId
+
+    val channel =
+      NotificationChannel(
+          channelId,
+          "Banner Alarm Shalat Berulang",
+          NotificationManager.IMPORTANCE_HIGH,
+        )
+        .apply {
+          description = "Menampilkan banner alarm shalat saat audio alarm diputar berulang"
+          lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+          setSound(null, null)
+          enableVibration(true)
+          vibrationPattern = longArrayOf(0L, 350L, 200L, 350L)
+          setBypassDnd(true)
+        }
+    nm.createNotificationChannel(channel)
+    return channelId
+  }
+
+  fun ensurePreviewChannel(
+    context: Context,
+    category: SoundCategory,
+    setting: SoundCategorySetting,
+  ): String {
+    val fileHash = setting.customFileName?.hashCode() ?: 0
+    val channelId = "channel_preview_${category.id}_${setting.mode.id}_$fileHash"
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return channelId
+
+    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    createCategoryChannel(
+      context = context,
+      nm = nm,
+      channelId = channelId,
+      name = "Uji Notifikasi Alarm (${setting.mode.label})",
+      description = "Saluran khusus untuk pratinjau langsung notifikasi alarm",
+      setting = setting,
+    )
+    return channelId
   }
 
   private fun builtInSoundUri(context: Context): Uri =

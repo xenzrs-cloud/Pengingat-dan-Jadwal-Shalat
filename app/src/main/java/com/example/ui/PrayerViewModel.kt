@@ -5,7 +5,10 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.alarm.NotificationChannelManager
+import com.example.alarm.NotificationPreviewMoment
+import com.example.alarm.NotificationThemeHelper
 import com.example.alarm.PrayerAlarmScheduler
+import com.example.alarm.PrayerAlarmSoundService
 import com.example.audio.AudioPreviewPlayer
 import com.example.data.CustomAudioStorage
 import com.example.data.LocationHelper
@@ -22,6 +25,8 @@ import com.example.domain.SoundCategory
 import com.example.domain.SoundCategorySetting
 import com.example.domain.SoundMode
 import com.example.domain.WidgetThemeMode
+import com.example.widget.DynamicDayPhase
+import com.example.widget.WidgetThemeHelper
 import java.util.Calendar
 import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +42,6 @@ import kotlinx.coroutines.withContext
 data class NextEventUi(
   val type: PrayerType,
   val targetMillis: Long,
-  val remainingMillis: Long,
   val isTomorrow: Boolean,
 )
 
@@ -45,13 +49,19 @@ data class ActivePrayerUi(
   val type: PrayerType,
   val startMillis: Long,
   val endMillis: Long,
-  val remainingMillis: Long,
+)
+
+data class CountdownUiState(
+  val nextRemainingMillis: Long = 0L,
+  val activeRemainingMillis: Long = 0L,
+  val activeProgress: Float = 0f,
 )
 
 data class PrayerUiState(
-  val nowMillis: Long = System.currentTimeMillis(),
   val todaySchedule: DailyPrayerSchedule? = null,
   val tomorrowSchedule: DailyPrayerSchedule? = null,
+  val formattedDate: String = "",
+  val dynamicPhase: DynamicDayPhase = DynamicDayPhase.DAY,
   val nextEvent: NextEventUi? = null,
   val activePrayer: ActivePrayerUi? = null,
   val preferences: PrayerPreferences = PrayerPreferences(),
@@ -62,6 +72,27 @@ data class PrayerUiState(
   val isLoadingLocation: Boolean = false,
   val canScheduleExactAlarms: Boolean = true,
   val snackbarMessage: String? = null,
+)
+
+private data class AlarmScheduleKey(
+  val latitude: Double,
+  val longitude: Double,
+  val timeZoneId: String,
+  val prayerEntry: SoundCategorySetting,
+  val imsakEntry: SoundCategorySetting,
+  val expiryReminder: SoundCategorySetting,
+  val quickOverrides: Map<PrayerType, QuickSoundOverride>,
+  val checkedDateKey: String,
+  val checkedPrayers: Set<PrayerType>,
+  val channelVersion: Int,
+)
+
+private data class ScheduleCacheKey(
+  val dateKey: String,
+  val latitude: Double,
+  val longitude: Double,
+  val timeZoneId: String,
+  val locationName: String,
 )
 
 class PrayerViewModel(application: Application) : AndroidViewModel(application) {
@@ -76,7 +107,15 @@ class PrayerViewModel(application: Application) : AndroidViewModel(application) 
     )
   val uiState: StateFlow<PrayerUiState> = _uiState.asStateFlow()
 
+  private val _countdownState = MutableStateFlow(CountdownUiState())
+  val countdownState: StateFlow<CountdownUiState> = _countdownState.asStateFlow()
+
   private var lastComputedDateKey: String = ""
+  private var lastAlarmKey: AlarmScheduleKey? = null
+  private var lastScheduleKey: ScheduleCacheKey? = null
+  private var cachedToday: DailyPrayerSchedule? = null
+  private var cachedTomorrow: DailyPrayerSchedule? = null
+  private var cachedDateText: String = ""
   private var draftInitialized = false
 
   init {
@@ -93,20 +132,49 @@ class PrayerViewModel(application: Application) : AndroidViewModel(application) 
         if (prefs.checkedDateKey.isNotEmpty() && prefs.checkedDateKey != todayKey) {
           repository.resetCheckedPrayersIfDateChanged(todayKey)
         }
+
+        val (today, tomorrow, dateText) =
+          withContext(Dispatchers.Default) {
+            ensureSchedulesCached(now, todayKey, prefs)
+          }
+
         _uiState.update { state ->
           val updated =
             state.copy(
               preferences = prefs,
-              draftPrayerEntry = if (!draftInitialized) prefs.prayerEntrySound else state.draftPrayerEntry,
-              draftImsakEntry = if (!draftInitialized) prefs.imsakEntrySound else state.draftImsakEntry,
+              todaySchedule = today,
+              tomorrowSchedule = tomorrow,
+              formattedDate = dateText,
+              draftPrayerEntry =
+                if (!draftInitialized) prefs.prayerEntrySound else state.draftPrayerEntry,
+              draftImsakEntry =
+                if (!draftInitialized) prefs.imsakEntrySound else state.draftImsakEntry,
               draftExpiryReminder =
                 if (!draftInitialized) prefs.expiryReminderSound else state.draftExpiryReminder,
             )
           draftInitialized = true
-          recalculateDerivedState(updated, now)
+          updateWindowAndPhase(updated, today, tomorrow, prefs, now)
         }
-        withContext(Dispatchers.Default) {
-          PrayerAlarmScheduler.rescheduleAll(appContext, prefs, now)
+        updateCountdownValues(now)
+
+        val alarmKey =
+          AlarmScheduleKey(
+            latitude = prefs.latitude,
+            longitude = prefs.longitude,
+            timeZoneId = prefs.timeZoneId,
+            prayerEntry = prefs.prayerEntrySound,
+            imsakEntry = prefs.imsakEntrySound,
+            expiryReminder = prefs.expiryReminderSound,
+            quickOverrides = prefs.quickOverrides,
+            checkedDateKey = prefs.checkedDateKey,
+            checkedPrayers = prefs.checkedPrayers,
+            channelVersion = prefs.channelVersion,
+          )
+        if (alarmKey != lastAlarmKey) {
+          lastAlarmKey = alarmKey
+          withContext(Dispatchers.Default) {
+            PrayerAlarmScheduler.rescheduleAll(appContext, prefs, now)
+          }
         }
       }
     }
@@ -125,25 +193,79 @@ class PrayerViewModel(application: Application) : AndroidViewModel(application) 
       while (isActive) {
         val now = System.currentTimeMillis()
         val currentState = _uiState.value
-        val tzId = currentState.preferences.timeZoneId
+        val prefs = currentState.preferences
+        val tzId = prefs.timeZoneId
         val currentDateKey = KemenagPrayerCalculator.dateKeyForMillis(now, tzId)
 
-        if (lastComputedDateKey.isNotEmpty() && lastComputedDateKey != currentDateKey) {
-          repository.resetCheckedPrayersIfDateChanged(currentDateKey)
-          withContext(Dispatchers.Default) {
-            PrayerAlarmScheduler.rescheduleAll(appContext, currentState.preferences, now)
-          }
-        }
+        val dateChanged =
+          lastComputedDateKey.isNotEmpty() && lastComputedDateKey != currentDateKey
         lastComputedDateKey = currentDateKey
 
-        _uiState.update { state -> recalculateDerivedState(state, now) }
+        if (dateChanged) {
+          repository.resetCheckedPrayersIfDateChanged(currentDateKey)
+          val (today, tomorrow, dateText) =
+            withContext(Dispatchers.Default) {
+              ensureSchedulesCached(now, currentDateKey, prefs)
+            }
+          _uiState.update { state ->
+            updateWindowAndPhase(
+              state.copy(
+                todaySchedule = today,
+                tomorrowSchedule = tomorrow,
+                formattedDate = dateText,
+              ),
+              today,
+              tomorrow,
+              prefs,
+              now,
+            )
+          }
+          withContext(Dispatchers.Default) {
+            PrayerAlarmScheduler.rescheduleAll(appContext, prefs, now)
+          }
+        } else {
+          // Only update PrayerUiState when an active/next prayer boundary or phase changes
+          val today = currentState.todaySchedule
+          val tomorrow = currentState.tomorrowSchedule
+          if (today != null && tomorrow != null) {
+            val phaseNow = WidgetThemeHelper.resolveDynamicPhase(now, tzId)
+            val nextBoundaryPassed =
+              currentState.nextEvent?.let { now >= it.targetMillis } ?: true
+            val activeBoundaryPassed =
+              currentState.activePrayer?.let { now >= it.endMillis } ?: false
+            if (phaseNow != currentState.dynamicPhase || nextBoundaryPassed || activeBoundaryPassed) {
+              _uiState.update { state ->
+                updateWindowAndPhase(state, today, tomorrow, prefs, now)
+              }
+            }
+          }
+        }
+
+        updateCountdownValues(now)
         delay(1_000L)
       }
     }
   }
 
-  private fun recalculateDerivedState(state: PrayerUiState, nowMillis: Long): PrayerUiState {
-    val prefs = state.preferences
+  private fun ensureSchedulesCached(
+    nowMillis: Long,
+    todayKey: String,
+    prefs: PrayerPreferences,
+  ): Triple<DailyPrayerSchedule, DailyPrayerSchedule, String> {
+    val key =
+      ScheduleCacheKey(
+        dateKey = todayKey,
+        latitude = prefs.latitude,
+        longitude = prefs.longitude,
+        timeZoneId = prefs.timeZoneId,
+        locationName = prefs.locationName,
+      )
+    val existingToday = cachedToday
+    val existingTomorrow = cachedTomorrow
+    if (key == lastScheduleKey && existingToday != null && existingTomorrow != null) {
+      return Triple(existingToday, existingTomorrow, cachedDateText)
+    }
+
     val (today, tomorrow) =
       KemenagPrayerCalculator.calculateTodayAndTomorrow(
         nowMillis = nowMillis,
@@ -152,52 +274,87 @@ class PrayerViewModel(application: Application) : AndroidViewModel(application) 
         timeZoneId = prefs.timeZoneId,
         locationName = prefs.locationName,
       )
+    val dateText = KemenagPrayerCalculator.formatIndonesianDate(nowMillis, prefs.timeZoneId)
+    lastScheduleKey = key
+    cachedToday = today
+    cachedTomorrow = tomorrow
+    cachedDateText = dateText
+    return Triple(today, tomorrow, dateText)
+  }
 
-    val orderedEvents = buildList {
-      val orderedTypes =
-        listOf(
-          PrayerType.IMSAK,
-          PrayerType.SUBUH,
-          PrayerType.TERBIT,
-          PrayerType.DZUHUR,
-          PrayerType.ASHAR,
-          PrayerType.MAGHRIB,
-          PrayerType.ISYA,
-        )
-      orderedTypes.forEach { add(today.slotOf(it) to false) }
-      orderedTypes.forEach { add(tomorrow.slotOf(it) to true) }
-    }
-
-    val nextPair = orderedEvents.firstOrNull { (slot, _) -> slot.startEpochMillis > nowMillis }
-    val nextEvent =
-      nextPair?.let { (slot, isTomorrow) ->
-        NextEventUi(
-          type = slot.type,
-          targetMillis = slot.startEpochMillis,
-          remainingMillis = (slot.startEpochMillis - nowMillis).coerceAtLeast(0L),
-          isTomorrow = isTomorrow,
-        )
+  private fun updateWindowAndPhase(
+    state: PrayerUiState,
+    today: DailyPrayerSchedule,
+    tomorrow: DailyPrayerSchedule,
+    prefs: PrayerPreferences,
+    nowMillis: Long,
+  ): PrayerUiState {
+    val orderedTypes =
+      listOf(
+        PrayerType.IMSAK,
+        PrayerType.SUBUH,
+        PrayerType.TERBIT,
+        PrayerType.DZUHUR,
+        PrayerType.ASHAR,
+        PrayerType.MAGHRIB,
+        PrayerType.ISYA,
+      )
+    var nextEvent: NextEventUi? = null
+    for (type in orderedTypes) {
+      val slot = today.slotOf(type)
+      if (slot.startEpochMillis > nowMillis) {
+        nextEvent = NextEventUi(slot.type, slot.startEpochMillis, isTomorrow = false)
+        break
       }
+    }
+    if (nextEvent == null) {
+      for (type in orderedTypes) {
+        val slot = tomorrow.slotOf(type)
+        if (slot.startEpochMillis > nowMillis) {
+          nextEvent = NextEventUi(slot.type, slot.startEpochMillis, isTomorrow = true)
+          break
+        }
+      }
+    }
 
     val activeSlot = findActiveObligatorySlot(nowMillis, today, prefs)
     val activePrayer =
       activeSlot?.let { slot ->
-        val endMillis = slot.endEpochMillis ?: slot.startEpochMillis
         ActivePrayerUi(
           type = slot.type,
           startMillis = slot.startEpochMillis,
-          endMillis = endMillis,
-          remainingMillis = (endMillis - nowMillis).coerceAtLeast(0L),
+          endMillis = slot.endEpochMillis ?: slot.startEpochMillis,
         )
       }
 
+    val phase = WidgetThemeHelper.resolveDynamicPhase(nowMillis, prefs.timeZoneId)
     return state.copy(
-      nowMillis = nowMillis,
-      todaySchedule = today,
-      tomorrowSchedule = tomorrow,
+      dynamicPhase = phase,
       nextEvent = nextEvent,
       activePrayer = activePrayer,
     )
+  }
+
+  private fun updateCountdownValues(nowMillis: Long) {
+    val state = _uiState.value
+    val nextRemaining =
+      state.nextEvent?.let { (it.targetMillis - nowMillis).coerceAtLeast(0L) } ?: 0L
+    val active = state.activePrayer
+    val activeRemaining =
+      active?.let { (it.endMillis - nowMillis).coerceAtLeast(0L) } ?: 0L
+    val activeProgress =
+      if (active != null && active.endMillis > active.startMillis) {
+        ((nowMillis - active.startMillis).toFloat() / (active.endMillis - active.startMillis).toFloat())
+          .coerceIn(0f, 1f)
+      } else {
+        0f
+      }
+    _countdownState.value =
+      CountdownUiState(
+        nextRemainingMillis = nextRemaining,
+        activeRemainingMillis = activeRemaining,
+        activeProgress = activeProgress,
+      )
   }
 
   private fun findActiveObligatorySlot(
@@ -205,7 +362,6 @@ class PrayerViewModel(application: Application) : AndroidViewModel(application) 
     today: DailyPrayerSchedule,
     prefs: PrayerPreferences,
   ): PrayerSlot? {
-    // Check today's obligatory prayers first
     PrayerType.obligatoryPrayers.forEach { type ->
       val slot = today.slotOf(type)
       val end = slot.endEpochMillis ?: return@forEach
@@ -214,7 +370,6 @@ class PrayerViewModel(application: Application) : AndroidViewModel(application) 
       }
     }
 
-    // If before today's Subuh, check yesterday's Isya (which ends at today's Subuh)
     val todaySubuhStart = today.slotOf(PrayerType.SUBUH).startEpochMillis
     if (nowMillis < todaySubuhStart) {
       val tz = TimeZone.getTimeZone(prefs.timeZoneId)
@@ -451,6 +606,115 @@ class PrayerViewModel(application: Application) : AndroidViewModel(application) 
         it.copy(
           snackbarMessage =
             "Pengaturan disimpan (Channel v$newVersion) & seluruh alarm dijadwalkan ulang."
+        )
+      }
+    }
+  }
+
+  fun sendLiveNotificationPreview(
+    moment: NotificationPreviewMoment,
+    soundSetting: SoundCategorySetting,
+  ) {
+    viewModelScope.launch {
+      val state = _uiState.value
+      val prefs = state.preferences
+      val schedule = state.todaySchedule
+      val sampleSlot =
+        schedule?.slotOf(
+          state.activePrayer?.type
+            ?: state.nextEvent?.type?.takeIf { it.isObligatory }
+            ?: PrayerType.DZUHUR
+        )
+      val prayerName = sampleSlot?.type?.displayName ?: "Dzuhur"
+      val startClock =
+        sampleSlot?.let { KemenagPrayerCalculator.formatClock(it.startEpochMillis, prefs.timeZoneId) }
+          ?: "11:45"
+      val endClock =
+        sampleSlot?.endEpochMillis?.let {
+          KemenagPrayerCalculator.formatClock(it, prefs.timeZoneId)
+        } ?: "15:01"
+
+      val category =
+        when (moment) {
+          NotificationPreviewMoment.ENTRY -> SoundCategory.PRAYER_ENTRY
+          NotificationPreviewMoment.H30,
+          NotificationPreviewMoment.H15 -> SoundCategory.EXPIRY_REMINDER
+        }
+
+      val title =
+        when (moment) {
+          NotificationPreviewMoment.ENTRY -> "$prayerName • $startClock"
+          NotificationPreviewMoment.H30 -> "$prayerName • 30 mnt lagi"
+          NotificationPreviewMoment.H15 -> "$prayerName • 15 mnt lagi!"
+        }
+      val body =
+        when (moment) {
+          NotificationPreviewMoment.ENTRY -> "Masuk waktu • Habis $endClock"
+          NotificationPreviewMoment.H30 -> "Batas waktu pukul $endClock"
+          NotificationPreviewMoment.H15 -> "Segera shalat • Habis $endClock"
+        }
+
+      val hasAudibleSound =
+        soundSetting.mode == SoundMode.DEFAULT_ADZAN || soundSetting.mode == SoundMode.CUSTOM_FILE
+      val loopAudio = moment != NotificationPreviewMoment.ENTRY
+      val notificationId = 8800 + moment.ordinal
+
+      val shown =
+        withContext(Dispatchers.Default) {
+          var startedService = false
+          if (hasAudibleSound) {
+            startedService =
+              PrayerAlarmSoundService.startAlarm(
+                context = appContext,
+                notificationId = notificationId,
+                title = title,
+                body = body,
+                isUrgent = moment == NotificationPreviewMoment.H15,
+                appThemeMode = prefs.appThemeMode,
+                timeZoneId = prefs.timeZoneId,
+                prayerType = sampleSlot?.type ?: PrayerType.DZUHUR,
+                isTestPreview = true,
+                soundMode = soundSetting.mode,
+                customFileName = soundSetting.customFileName,
+                loopAudio = loopAudio,
+              )
+          }
+          if (startedService) {
+            true
+          } else {
+            val previewChannelId =
+              NotificationChannelManager.ensurePreviewChannel(appContext, category, soundSetting)
+            NotificationThemeHelper.buildAndShowNotification(
+              context = appContext,
+              notificationId = notificationId,
+              channelId = previewChannelId,
+              title = title,
+              body = body,
+              isUrgent = moment == NotificationPreviewMoment.H15,
+              appThemeMode = prefs.appThemeMode,
+              timeZoneId = prefs.timeZoneId,
+              prayerType = sampleSlot?.type ?: PrayerType.DZUHUR,
+              isTestPreview = true,
+              isInsistent = hasAudibleSound && loopAudio,
+            )
+          }
+        }
+
+      _uiState.update {
+        it.copy(
+          snackbarMessage =
+            if (shown) {
+              when {
+                hasAudibleSound && !loopAudio ->
+                  "Uji notifikasi Masuk aktif — suara diputar 1x hingga azan/audio selesai."
+                hasAudibleSound ->
+                  "Uji notifikasi ${moment.label} aktif & berbunyi berulang hingga ditutup."
+                else ->
+                  "Uji notifikasi ${moment.label} dikirim (${soundSetting.mode.label})."
+              }
+            } else {
+              "Izin notifikasi belum aktif. Aktifkan izin notifikasi terlebih dahulu."
+            }
         )
       }
     }

@@ -59,6 +59,7 @@ object PrayerAlarmScheduler {
     // a) Alarm Waktu Imsak (10 menit sebelum Subuh)
     val imsakSlot = schedule.slotOf(PrayerType.IMSAK)
     val subuhSlot = schedule.slotOf(PrayerType.SUBUH)
+    val imsakClock = KemenagPrayerCalculator.formatClock(imsakSlot.startEpochMillis, schedule.timeZoneId)
     val subuhClock = KemenagPrayerCalculator.formatClock(subuhSlot.startEpochMillis, schedule.timeZoneId)
     val imsakOverride = preferences.overrideFor(PrayerType.IMSAK)
     val imsakChannel =
@@ -75,8 +76,8 @@ object PrayerAlarmScheduler {
       schedule = schedule,
       prayerType = PrayerType.IMSAK,
       kind = AlarmKind.ENTRY,
-      title = "Waktu Imsak Telah Tiba",
-      body = "10 menit lagi menuju waktu Subuh (pukul $subuhClock)",
+      title = "Imsak • $imsakClock",
+      body = "10 menit menuju Subuh ($subuhClock)",
       channelId = imsakChannel,
     )
 
@@ -109,8 +110,8 @@ object PrayerAlarmScheduler {
         schedule = schedule,
         prayerType = prayerType,
         kind = AlarmKind.ENTRY,
-        title = "Waktu Shalat ${prayerType.displayName} Telah Tiba",
-        body = "Pukul $startClock • Batas waktu hingga $endClock (${schedule.locationName})",
+        title = "${prayerType.displayName} • $startClock",
+        body = "Masuk waktu • Habis $endClock",
         channelId = entryChannel,
       )
 
@@ -131,8 +132,8 @@ object PrayerAlarmScheduler {
             schedule = schedule,
             prayerType = prayerType,
             kind = AlarmKind.REMINDER_H30,
-            title = "Pengingat Waktu Shalat ${prayerType.displayName}",
-            body = "30 menit lagi waktu shalat ${prayerType.displayName} berakhir (pukul $endClock)",
+            title = "${prayerType.displayName} • 30 mnt lagi",
+            body = "Batas waktu pukul $endClock",
             channelId = expiryChannel,
           )
         }
@@ -145,8 +146,8 @@ object PrayerAlarmScheduler {
             schedule = schedule,
             prayerType = prayerType,
             kind = AlarmKind.REMINDER_H15,
-            title = "Segera Shalat ${prayerType.displayName}!",
-            body = "Segera shalat ${prayerType.displayName}! 15 menit lagi waktu shalat habis (pukul $endClock)",
+            title = "${prayerType.displayName} • 15 mnt lagi!",
+            body = "Segera shalat • Habis $endClock",
             channelId = expiryChannel,
           )
         }
@@ -195,6 +196,11 @@ object PrayerAlarmScheduler {
         putExtra(PrayerAlarmReceiver.EXTRA_TITLE, title)
         putExtra(PrayerAlarmReceiver.EXTRA_BODY, body)
         putExtra(PrayerAlarmReceiver.EXTRA_IS_URGENT, kind == AlarmKind.REMINDER_H15)
+        putExtra(PrayerAlarmReceiver.EXTRA_ALARM_KIND, kind.code)
+        putExtra(PrayerAlarmReceiver.EXTRA_PRAYER_TYPE, prayerType.id)
+        putExtra(PrayerAlarmReceiver.EXTRA_YEAR, schedule.year)
+        putExtra(PrayerAlarmReceiver.EXTRA_MONTH, schedule.month)
+        putExtra(PrayerAlarmReceiver.EXTRA_DAY, schedule.day)
       }
 
     val pendingIntent =

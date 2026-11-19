@@ -5,6 +5,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.PI
 import kotlin.math.acos
 import kotlin.math.asin
@@ -30,6 +31,21 @@ object KemenagPrayerCalculator {
   private const val SUNRISE_ALTITUDE = -0.8333 // Standard solar disk + atmospheric refraction
   private const val IMSAK_OFFSET_MINUTES = 10
 
+  private val idLocale = Locale.forLanguageTag("id-ID")
+  private val tzCache = ConcurrentHashMap<String, TimeZone>()
+  private val clockFormatterTl =
+    object : ThreadLocal<SimpleDateFormat>() {
+      override fun initialValue(): SimpleDateFormat = SimpleDateFormat("HH:mm", idLocale)
+    }
+  private val indonesianDateFormatterTl =
+    object : ThreadLocal<SimpleDateFormat>() {
+      override fun initialValue(): SimpleDateFormat =
+        SimpleDateFormat("EEEE, d MMMM yyyy", idLocale)
+    }
+
+  private fun cachedTimeZone(timeZoneId: String): TimeZone =
+    tzCache.getOrPut(timeZoneId) { TimeZone.getTimeZone(timeZoneId) }
+
   fun calculateForDate(
     year: Int,
     month: Int, // 1..12
@@ -39,7 +55,7 @@ object KemenagPrayerCalculator {
     timeZoneId: String,
     locationName: String,
   ): DailyPrayerSchedule {
-    val tz = TimeZone.getTimeZone(timeZoneId)
+    val tz = cachedTimeZone(timeZoneId)
     val baseCalendar =
       Calendar.getInstance(tz).apply {
         set(Calendar.YEAR, year)
@@ -109,7 +125,7 @@ object KemenagPrayerCalculator {
     timeZoneId: String,
     locationName: String,
   ): Pair<DailyPrayerSchedule, DailyPrayerSchedule> {
-    val tz = TimeZone.getTimeZone(timeZoneId)
+    val tz = cachedTimeZone(timeZoneId)
     val todayCal = Calendar.getInstance(tz).apply { timeInMillis = nowMillis }
     val today =
       calculateForDate(
@@ -139,7 +155,7 @@ object KemenagPrayerCalculator {
   }
 
   fun dateKeyForMillis(epochMillis: Long, timeZoneId: String): String {
-    val tz = TimeZone.getTimeZone(timeZoneId)
+    val tz = cachedTimeZone(timeZoneId)
     val cal = Calendar.getInstance(tz).apply { timeInMillis = epochMillis }
     return String.format(
       Locale.US,
@@ -151,21 +167,17 @@ object KemenagPrayerCalculator {
   }
 
   fun formatClock(epochMillis: Long, timeZoneId: String): String {
-    val formatter =
-      SimpleDateFormat("HH:mm", Locale.forLanguageTag("id-ID")).apply {
-        timeZone = TimeZone.getTimeZone(timeZoneId)
-      }
+    val formatter = clockFormatterTl.get() ?: SimpleDateFormat("HH:mm", idLocale)
+    formatter.timeZone = cachedTimeZone(timeZoneId)
     return formatter.format(Date(epochMillis))
   }
 
   fun formatIndonesianDate(epochMillis: Long, timeZoneId: String): String {
-    val locale = Locale.forLanguageTag("id-ID")
     val formatter =
-      SimpleDateFormat("EEEE, d MMMM yyyy", locale).apply {
-        timeZone = TimeZone.getTimeZone(timeZoneId)
-      }
+      indonesianDateFormatterTl.get() ?: SimpleDateFormat("EEEE, d MMMM yyyy", idLocale)
+    formatter.timeZone = cachedTimeZone(timeZoneId)
     val raw = formatter.format(Date(epochMillis))
-    return raw.replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
+    return raw.replaceFirstChar { if (it.isLowerCase()) it.titlecase(idLocale) else it.toString() }
   }
 
   fun formatCountdown(durationMillis: Long): String {

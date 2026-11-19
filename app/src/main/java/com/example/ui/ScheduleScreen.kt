@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.GpsFixed
 import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.MyLocation
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -83,6 +84,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -100,7 +102,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.StateFlow
 import com.example.R
+import com.example.alarm.NotificationPreviewMoment
 import com.example.domain.AppThemeMode
 import com.example.domain.DailyPrayerSchedule
 import com.example.domain.IndonesianCities
@@ -110,6 +115,7 @@ import com.example.domain.PrayerPreferences
 import com.example.domain.PrayerSlot
 import com.example.domain.PrayerType
 import com.example.domain.QuickSoundOverride
+import com.example.domain.SoundCategorySetting
 import com.example.domain.WidgetThemeMode
 import com.example.ui.theme.JetBrainsMonoFamily
 import com.example.ui.theme.SoftInkOnAccent
@@ -120,6 +126,7 @@ import java.util.Locale
 @Composable
 fun ScheduleScreen(
   uiState: PrayerUiState,
+  countdownStateFlow: StateFlow<CountdownUiState>,
   hasNotificationPermission: Boolean,
   onRequestNotificationPermission: () -> Unit,
   onRequestExactAlarmSettings: () -> Unit,
@@ -132,26 +139,35 @@ fun ScheduleScreen(
   onOpenAppSettings: () -> Unit,
   onToggleAlreadyPrayed: (PrayerType, Boolean) -> Unit,
   onSelectQuickOverride: (PrayerType, QuickSoundOverride) -> Unit,
+  onSendLiveNotificationPreview: (NotificationPreviewMoment, SoundCategorySetting) -> Unit,
   onSnackbarShown: () -> Unit,
 ) {
   val snackbarHostState = remember { SnackbarHostState() }
   val haptics = LocalHapticFeedback.current
-  val togglePrayedWithHaptics: (PrayerType, Boolean) -> Unit = { type, checked ->
-    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-    onToggleAlreadyPrayed(type, checked)
-  }
-  val selectOverrideWithHaptics: (PrayerType, QuickSoundOverride) -> Unit = { type, ov ->
-    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-    onSelectQuickOverride(type, ov)
-  }
+  val togglePrayedWithHaptics =
+    remember(haptics, onToggleAlreadyPrayed) {
+      { type: PrayerType, checked: Boolean ->
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        onToggleAlreadyPrayed(type, checked)
+      }
+    }
+  val selectOverrideWithHaptics =
+    remember(haptics, onSelectQuickOverride) {
+      { type: PrayerType, ov: QuickSoundOverride ->
+        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        onSelectQuickOverride(type, ov)
+      }
+    }
   var showCityPicker by remember { mutableStateOf(false) }
   var showWidgetOptions by remember { mutableStateOf(false) }
   var showThemePicker by remember { mutableStateOf(false) }
+  var showNotificationPreview by remember { mutableStateOf(false) }
 
-  val currentPhase =
-    WidgetThemeHelper.resolveDynamicPhase(uiState.nowMillis, uiState.preferences.timeZoneId)
+  val currentPhase = uiState.dynamicPhase
   val activeMosqueDrawable =
-    resolveAppMosqueDrawable(uiState.preferences.appThemeMode, currentPhase)
+    remember(uiState.preferences.appThemeMode, currentPhase) {
+      resolveAppMosqueDrawable(uiState.preferences.appThemeMode, currentPhase)
+    }
 
   LaunchedEffect(uiState.snackbarMessage) {
     uiState.snackbarMessage?.let { msg ->
@@ -160,10 +176,13 @@ fun ScheduleScreen(
     }
   }
 
+  val primaryTint = MaterialTheme.colorScheme.primary
+  val backgroundColor = MaterialTheme.colorScheme.background
+
   Scaffold(
     contentWindowInsets = WindowInsets.safeDrawing,
     snackbarHost = { SnackbarHost(snackbarHostState) },
-    containerColor = MaterialTheme.colorScheme.background,
+    containerColor = backgroundColor,
   ) { innerPadding ->
     val schedule = uiState.todaySchedule
     if (schedule == null) {
@@ -176,17 +195,16 @@ fun ScheduleScreen(
       return@Scaffold
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-      if (activeMosqueDrawable != null) {
-        Image(
-          painter = painterResource(id = activeMosqueDrawable),
-          contentDescription = null,
-          contentScale = ContentScale.Crop,
-          alpha = 0.22f,
-          modifier = Modifier.fillMaxSize(),
-        )
-      }
-
+    Box(
+      modifier =
+        Modifier.fillMaxSize().drawWithCache {
+          val atmosphere =
+            Brush.verticalGradient(
+              colors = listOf(primaryTint.copy(alpha = 0.08f), backgroundColor)
+            )
+          onDrawBehind { drawRect(atmosphere) }
+        }
+    ) {
       BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
         val isWide = maxWidth >= 720.dp
         if (isWide) {
@@ -199,7 +217,7 @@ fun ScheduleScreen(
               verticalArrangement = Arrangement.spacedBy(12.dp),
               contentPadding = PaddingValues(bottom = 24.dp),
             ) {
-              item {
+              item(key = "hero") {
                 DashboardHeroSection(
                   uiState = uiState,
                   schedule = schedule,
@@ -212,7 +230,7 @@ fun ScheduleScreen(
                   onPinWidget = { showWidgetOptions = true },
                 )
               }
-              item {
+              item(key = "quick_add_widget") {
                 QuickAddWidgetCard(
                   onQuickPin = { style ->
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -221,8 +239,14 @@ fun ScheduleScreen(
                   onOpenWidgetMenu = { showWidgetOptions = true },
                 )
               }
+              item(key = "notif_preview") {
+                NotificationPreviewShortcutCard(
+                  onOpenPreview = { showNotificationPreview = true },
+                  onOpenSoundSettings = onOpenSoundSettings,
+                )
+              }
             if (!hasNotificationPermission || !uiState.canScheduleExactAlarms) {
-              item {
+              item(key = "perm_banner") {
                 PermissionAlertBanner(
                   hasNotificationPermission = hasNotificationPermission,
                   canScheduleExactAlarms = uiState.canScheduleExactAlarms,
@@ -231,10 +255,14 @@ fun ScheduleScreen(
                 )
               }
             }
-            item {
-              DualCountdownSection(uiState = uiState, timeZoneId = schedule.timeZoneId)
+            item(key = "countdown") {
+              DualCountdownSection(
+                uiState = uiState,
+                countdownStateFlow = countdownStateFlow,
+                timeZoneId = schedule.timeZoneId,
+              )
             }
-            item {
+            item(key = "progress") {
               DailyPrayerProgressCard(
                 dateKey = schedule.dateKey,
                 preferences = uiState.preferences,
@@ -249,7 +277,7 @@ fun ScheduleScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(bottom = 24.dp),
           ) {
-            item {
+            item(key = "imsak") {
               ImsakScheduleCard(
                 slot = schedule.slotOf(PrayerType.IMSAK),
                 subuhSlot = schedule.slotOf(PrayerType.SUBUH),
@@ -258,7 +286,7 @@ fun ScheduleScreen(
                 onSelectOverride = { ov -> selectOverrideWithHaptics(PrayerType.IMSAK, ov) },
               )
             }
-            item {
+            item(key = "subuh") {
               ObligatoryPrayerCard(
                 slot = schedule.slotOf(PrayerType.SUBUH),
                 isActive = uiState.activePrayer?.type == PrayerType.SUBUH,
@@ -272,7 +300,7 @@ fun ScheduleScreen(
                 onSelectOverride = { ov -> selectOverrideWithHaptics(PrayerType.SUBUH, ov) },
               )
             }
-            item { SyuruqInfoStrip(slot = schedule.slotOf(PrayerType.TERBIT)) }
+            item(key = "syuruq") { SyuruqInfoStrip(slot = schedule.slotOf(PrayerType.TERBIT)) }
             items(
               items = listOf(PrayerType.DZUHUR, PrayerType.ASHAR, PrayerType.MAGHRIB, PrayerType.ISYA),
               key = { it.id },
@@ -299,7 +327,7 @@ fun ScheduleScreen(
           verticalArrangement = Arrangement.spacedBy(10.dp),
           horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-          item {
+          item(key = "hero") {
             DashboardHeroSection(
               uiState = uiState,
               schedule = schedule,
@@ -314,7 +342,7 @@ fun ScheduleScreen(
             )
           }
 
-          item {
+          item(key = "quick_add_widget") {
             QuickAddWidgetCard(
               onQuickPin = { style ->
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -325,8 +353,16 @@ fun ScheduleScreen(
             )
           }
 
+          item(key = "notif_preview") {
+            NotificationPreviewShortcutCard(
+              onOpenPreview = { showNotificationPreview = true },
+              onOpenSoundSettings = onOpenSoundSettings,
+              modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
+            )
+          }
+
           if (!hasNotificationPermission || !uiState.canScheduleExactAlarms) {
-            item {
+            item(key = "perm_banner") {
               PermissionAlertBanner(
                 hasNotificationPermission = hasNotificationPermission,
                 canScheduleExactAlarms = uiState.canScheduleExactAlarms,
@@ -337,15 +373,16 @@ fun ScheduleScreen(
             }
           }
 
-          item {
+          item(key = "countdown") {
             DualCountdownSection(
               uiState = uiState,
+              countdownStateFlow = countdownStateFlow,
               timeZoneId = schedule.timeZoneId,
               modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
             )
           }
 
-          item {
+          item(key = "progress") {
             DailyPrayerProgressCard(
               dateKey = schedule.dateKey,
               preferences = uiState.preferences,
@@ -355,7 +392,7 @@ fun ScheduleScreen(
             )
           }
 
-          item {
+          item(key = "section_header") {
             SectionHeaderRow(
               title = "Jadwal Hari Ini",
               subtitle = stringResource(R.string.label_kemenag_standard),
@@ -364,7 +401,7 @@ fun ScheduleScreen(
           }
 
           // Kartu Imsak paling atas
-          item {
+          item(key = "imsak") {
             ImsakScheduleCard(
               slot = schedule.slotOf(PrayerType.IMSAK),
               subuhSlot = schedule.slotOf(PrayerType.SUBUH),
@@ -376,7 +413,7 @@ fun ScheduleScreen(
           }
 
           // Kartu Subuh
-          item {
+          item(key = "subuh") {
             ObligatoryPrayerCard(
               slot = schedule.slotOf(PrayerType.SUBUH),
               isActive = uiState.activePrayer?.type == PrayerType.SUBUH,
@@ -393,7 +430,7 @@ fun ScheduleScreen(
           }
 
           // Strip informasi Terbit (Syuruq) sebagai batas akhir Subuh
-          item {
+          item(key = "syuruq") {
             SyuruqInfoStrip(
               slot = schedule.slotOf(PrayerType.TERBIT),
               modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth(),
@@ -453,6 +490,15 @@ fun ScheduleScreen(
       currentPhase = currentPhase,
       onSelectMode = onSelectAppThemeMode,
       onDismiss = { showThemePicker = false },
+    )
+  }
+
+  if (showNotificationPreview) {
+    NotificationPreviewDialog(
+      uiState = uiState,
+      onSendLiveNotificationPreview = onSendLiveNotificationPreview,
+      onOpenSoundSettings = onOpenSoundSettings,
+      onDismiss = { showNotificationPreview = false },
     )
   }
 }
@@ -534,16 +580,20 @@ private fun DashboardHeroSection(
     phaseAtmosphereLabel(uiState.preferences.appThemeMode, activePhase)
 
   val dateText =
-    remember(schedule.dateKey, schedule.timeZoneId) {
-      KemenagPrayerCalculator.formatIndonesianDate(uiState.nowMillis, schedule.timeZoneId)
+    uiState.formattedDate.ifBlank {
+      remember(schedule.dateKey, schedule.timeZoneId) {
+        KemenagPrayerCalculator.formatIndonesianDate(System.currentTimeMillis(), schedule.timeZoneId)
+      }
     }
   val coordText =
-    String.format(
-      Locale.US,
-      "%.4f, %.4f",
-      uiState.preferences.latitude,
-      uiState.preferences.longitude,
-    )
+    remember(uiState.preferences.latitude, uiState.preferences.longitude) {
+      String.format(
+        Locale.US,
+        "%.4f, %.4f",
+        uiState.preferences.latitude,
+        uiState.preferences.longitude,
+      )
+    }
 
   Surface(
     modifier = modifier.clip(RoundedCornerShape(22.dp)),
@@ -939,6 +989,116 @@ private fun QuickAddWidgetCard(
 }
 
 @Composable
+private fun NotificationPreviewShortcutCard(
+  onOpenPreview: () -> Unit,
+  onOpenSoundSettings: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Card(
+    modifier = modifier.testTag("notification_preview_shortcut_card"),
+    shape = RoundedCornerShape(18.dp),
+    colors =
+      CardDefaults.cardColors(
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
+      ),
+    border =
+      BorderStroke(
+        width = 1.dp,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f),
+      ),
+  ) {
+    Row(
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+      horizontalArrangement = Arrangement.spacedBy(10.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+        modifier = Modifier.size(40.dp),
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Rounded.NotificationsActive,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp),
+          )
+        }
+      }
+
+      Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+          text = "Pratinjau & Uji Notifikasi",
+          style = MaterialTheme.typography.titleSmall,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.onSurface,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+          text = "Lihat tampilan & uji alarm H-30, H-15, dan masuk waktu",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 2,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
+
+      Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+          modifier =
+            Modifier.minimumInteractiveComponentSize()
+              .clip(RoundedCornerShape(10.dp))
+              .clickable(onClick = onOpenSoundSettings)
+              .testTag("shortcut_sound_settings_button"),
+          shape = RoundedCornerShape(10.dp),
+          color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
+        ) {
+          Box(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            contentAlignment = Alignment.Center,
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.VolumeUp,
+              contentDescription = "Atur suara notifikasi",
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(18.dp),
+            )
+          }
+        }
+
+        Surface(
+          modifier =
+            Modifier.minimumInteractiveComponentSize()
+              .clip(RoundedCornerShape(10.dp))
+              .clickable(onClick = onOpenPreview)
+              .testTag("open_notification_preview_button"),
+          shape = RoundedCornerShape(10.dp),
+          color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+          border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            Text(
+              text = "Pratinjau",
+              style = MaterialTheme.typography.labelLarge,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.primary,
+              maxLines = 1,
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
 private fun PermissionAlertBanner(
   hasNotificationPermission: Boolean,
   canScheduleExactAlarms: Boolean,
@@ -989,9 +1149,12 @@ private fun PermissionAlertBanner(
 @Composable
 private fun DualCountdownSection(
   uiState: PrayerUiState,
+  countdownStateFlow: StateFlow<CountdownUiState>,
   timeZoneId: String,
   modifier: Modifier = Modifier,
 ) {
+  val countdown by countdownStateFlow.collectAsStateWithLifecycle()
+
   Row(
     modifier = modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1024,7 +1187,10 @@ private fun DualCountdownSection(
           )
         }
         if (nextEvent != null) {
-          val clock = KemenagPrayerCalculator.formatClock(nextEvent.targetMillis, timeZoneId)
+          val clock =
+            remember(nextEvent.targetMillis, timeZoneId) {
+              KemenagPrayerCalculator.formatClock(nextEvent.targetMillis, timeZoneId)
+            }
           Text(
             text =
               "${nextEvent.type.displayName} • $clock" +
@@ -1036,7 +1202,7 @@ private fun DualCountdownSection(
             overflow = TextOverflow.Ellipsis,
           )
           Text(
-            text = KemenagPrayerCalculator.formatCountdown(nextEvent.remainingMillis),
+            text = KemenagPrayerCalculator.formatCountdown(countdown.nextRemainingMillis),
             style =
               MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = JetBrainsMonoFamily,
@@ -1056,20 +1222,12 @@ private fun DualCountdownSection(
 
     // 2. Hitung mundur sisa waktu menuju batas habis shalat yang sedang aktif
     val active = uiState.activePrayer
-    val isUrgent15 = active != null && active.remainingMillis <= 15 * 60_000L
-    val isWarning30 = active != null && active.remainingMillis <= 30 * 60_000L
-    val activeWindowProgress =
-      if (active != null && active.endMillis > active.startMillis) {
-        ((uiState.nowMillis - active.startMillis).toFloat() /
-            (active.endMillis - active.startMillis).toFloat())
-          .coerceIn(0f, 1f)
-      } else {
-        0f
-      }
+    val isUrgent15 = active != null && countdown.activeRemainingMillis <= 15 * 60_000L
+    val isWarning30 = active != null && countdown.activeRemainingMillis <= 30 * 60_000L
     val animatedActiveProgress by
       animateFloatAsState(
-        targetValue = activeWindowProgress,
-        animationSpec = tween(durationMillis = 450),
+        targetValue = countdown.activeProgress,
+        animationSpec = tween(durationMillis = 300),
         label = "activeWindowProgress",
       )
     val accentActiveColor =
@@ -1117,7 +1275,10 @@ private fun DualCountdownSection(
           )
         }
         if (active != null) {
-          val endClock = KemenagPrayerCalculator.formatClock(active.endMillis, timeZoneId)
+          val endClock =
+            remember(active.endMillis, timeZoneId) {
+              KemenagPrayerCalculator.formatClock(active.endMillis, timeZoneId)
+            }
           Text(
             text = "${active.type.displayName} • Habis $endClock",
             style = MaterialTheme.typography.titleSmall,
@@ -1127,7 +1288,7 @@ private fun DualCountdownSection(
             overflow = TextOverflow.Ellipsis,
           )
           Text(
-            text = KemenagPrayerCalculator.formatCountdown(active.remainingMillis),
+            text = KemenagPrayerCalculator.formatCountdown(countdown.activeRemainingMillis),
             style =
               MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = JetBrainsMonoFamily,
@@ -1333,8 +1494,14 @@ private fun ImsakScheduleCard(
   onSelectOverride: (QuickSoundOverride) -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val imsakClock = KemenagPrayerCalculator.formatClock(slot.startEpochMillis, slot.timeZoneId)
-  val subuhClock = KemenagPrayerCalculator.formatClock(subuhSlot.startEpochMillis, slot.timeZoneId)
+  val imsakClock =
+    remember(slot.startEpochMillis, slot.timeZoneId) {
+      KemenagPrayerCalculator.formatClock(slot.startEpochMillis, slot.timeZoneId)
+    }
+  val subuhClock =
+    remember(subuhSlot.startEpochMillis, slot.timeZoneId) {
+      KemenagPrayerCalculator.formatClock(subuhSlot.startEpochMillis, slot.timeZoneId)
+    }
 
   Card(
     modifier = modifier.testTag("card_imsak"),
@@ -1428,7 +1595,10 @@ private fun ImsakScheduleCard(
 
 @Composable
 private fun SyuruqInfoStrip(slot: PrayerSlot, modifier: Modifier = Modifier) {
-  val terbitClock = KemenagPrayerCalculator.formatClock(slot.startEpochMillis, slot.timeZoneId)
+  val terbitClock =
+    remember(slot.startEpochMillis, slot.timeZoneId) {
+      KemenagPrayerCalculator.formatClock(slot.startEpochMillis, slot.timeZoneId)
+    }
   Surface(
     modifier = modifier.testTag("strip_syuruq"),
     shape = RoundedCornerShape(12.dp),
@@ -1481,9 +1651,14 @@ private fun ObligatoryPrayerCard(
   onSelectOverride: (QuickSoundOverride) -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val startClock = KemenagPrayerCalculator.formatClock(slot.startEpochMillis, slot.timeZoneId)
+  val startClock =
+    remember(slot.startEpochMillis, slot.timeZoneId) {
+      KemenagPrayerCalculator.formatClock(slot.startEpochMillis, slot.timeZoneId)
+    }
   val endClock =
-    slot.endEpochMillis?.let { KemenagPrayerCalculator.formatClock(it, slot.timeZoneId) } ?: "--:--"
+    remember(slot.endEpochMillis, slot.timeZoneId) {
+      slot.endEpochMillis?.let { KemenagPrayerCalculator.formatClock(it, slot.timeZoneId) } ?: "--:--"
+    }
 
   val containerColor by
     animateColorAsState(

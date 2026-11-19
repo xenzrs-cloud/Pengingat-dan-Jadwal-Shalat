@@ -36,7 +36,6 @@ import com.example.ui.theme.PengingatShalatTheme
 import com.example.widget.MediumPrayerWidgetProvider
 import com.example.widget.PrayerScheduleWidgetProvider
 import com.example.widget.WidePrayerWidgetProvider
-import com.example.widget.WidgetThemeHelper
 
 object AppRoutes {
   const val ROUTE_SCHEDULE = "schedule"
@@ -55,15 +54,10 @@ class MainActivity : ComponentActivity() {
       val vm: PrayerViewModel = viewModel()
       prayerViewModel = vm
       val uiState by vm.uiState.collectAsStateWithLifecycle()
-      val dynamicPhase =
-        WidgetThemeHelper.resolveDynamicPhase(
-          nowMillis = uiState.nowMillis,
-          timeZoneId = uiState.preferences.timeZoneId,
-        )
 
       PengingatShalatTheme(
         themeMode = uiState.preferences.appThemeMode,
-        dynamicPhase = dynamicPhase,
+        dynamicPhase = uiState.dynamicPhase,
       ) {
         val navController = rememberNavController()
 
@@ -113,6 +107,7 @@ class MainActivity : ComponentActivity() {
           composable(AppRoutes.ROUTE_SCHEDULE) {
             ScheduleScreen(
               uiState = uiState,
+              countdownStateFlow = vm.countdownState,
               hasNotificationPermission = hasNotificationPermission,
               onRequestNotificationPermission = {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -209,6 +204,16 @@ class MainActivity : ComponentActivity() {
               onSelectQuickOverride = { prayerType, override ->
                 vm.setQuickOverride(prayerType, override)
               },
+              onSendLiveNotificationPreview = { moment, setting ->
+                if (!checkNotificationPermission(context) &&
+                  Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                ) {
+                  notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                  vm.showSnackbar("Izinkan notifikasi lalu tekan kembali tombol Uji Notifikasi.")
+                } else {
+                  vm.sendLiveNotificationPreview(moment, setting)
+                }
+              },
               onSnackbarShown = { vm.clearSnackbar() },
             )
           }
@@ -221,6 +226,16 @@ class MainActivity : ComponentActivity() {
               onPickAudioFile = { category, uri -> vm.onAudioFilePicked(category, uri) },
               onTestSound = { category -> vm.previewDraftSound(category) },
               onStopSound = { vm.stopPreviewSound() },
+              onSendLiveNotificationPreview = { moment, setting ->
+                if (!checkNotificationPermission(context) &&
+                  Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                ) {
+                  notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                  vm.showSnackbar("Izinkan notifikasi lalu tekan kembali tombol Uji Notifikasi.")
+                } else {
+                  vm.sendLiveNotificationPreview(moment, setting)
+                }
+              },
               onSaveAndApply = { vm.saveAndApplySoundSettings() },
               onSnackbarShown = { vm.clearSnackbar() },
             )

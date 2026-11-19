@@ -157,7 +157,7 @@ fun WidgetOptionsDialog(
                 styleOption = previewStyle,
                 themeMode = selectedTheme,
                 schedule = schedule,
-                nowMillis = uiState.nowMillis,
+                nextPrayerType = uiState.nextEvent?.type,
               )
 
               val selectedSizeText =
@@ -374,7 +374,7 @@ private fun WidgetLivePreviewCard(
   styleOption: WidgetStyleOption,
   themeMode: WidgetThemeMode,
   schedule: DailyPrayerSchedule,
-  nowMillis: Long,
+  nextPrayerType: PrayerType?,
 ) {
   val phase =
     when (themeMode) {
@@ -432,19 +432,14 @@ private fun WidgetLivePreviewCard(
       WidgetStyleOption.SIZE_4X2 -> 140.dp
     }
 
-  val ordered =
-    listOf(
-      PrayerType.IMSAK,
-      PrayerType.SUBUH,
-      PrayerType.DZUHUR,
-      PrayerType.ASHAR,
-      PrayerType.MAGHRIB,
-      PrayerType.ISYA,
-    )
   val nextSlot =
-    ordered.map { schedule.slotOf(it) }.firstOrNull { it.startEpochMillis > nowMillis }
-      ?: schedule.slotOf(PrayerType.IMSAK)
-  val nextClock = KemenagPrayerCalculator.formatClock(nextSlot.startEpochMillis, schedule.timeZoneId)
+    remember(schedule, nextPrayerType) {
+      schedule.slotOf(nextPrayerType ?: PrayerType.IMSAK)
+    }
+  val nextClock =
+    remember(nextSlot.startEpochMillis, schedule.timeZoneId) {
+      KemenagPrayerCalculator.formatClock(nextSlot.startEpochMillis, schedule.timeZoneId)
+    }
 
   Surface(
     modifier = Modifier.width(previewWidth).height(previewHeight).clip(RoundedCornerShape(18.dp)),
